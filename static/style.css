@@ -941,34 +941,31 @@ table.leaderboard td:nth-child(5) {
     min-width: 5rem;
 }
 
-/* Col 6 - Exact scores: secondary, muted appearance */
+/* Col 6 - Exact scores: secondary stat. Muted in the body only; the header
+   keeps the default light-on-navy style so the label stays legible. */
 table.leaderboard th:nth-child(6),
 table.leaderboard td:nth-child(6) {
     text-align: right;
     width: 6rem;
     min-width: 6rem;
     padding-right: 1.4rem;
+}
+table.leaderboard td:nth-child(6) {
     font-size: 0.9rem;
     color: var(--ink-soft);
 }
-table.leaderboard th:nth-child(6) {
-    font-size: 0.85rem;
-    opacity: 0.85;
-}
 
-/* Col 7 - Settled bets: secondary, muted appearance */
+/* Col 7 - Settled bets: secondary stat, same treatment as col 6. */
 table.leaderboard th:nth-child(7),
 table.leaderboard td:nth-child(7) {
     text-align: right;
     width: 6.5rem;
     min-width: 6.5rem;
     padding-right: 1.4rem;
+}
+table.leaderboard td:nth-child(7) {
     font-size: 0.9rem;
     color: var(--ink-soft);
-}
-table.leaderboard th:nth-child(7) {
-    font-size: 0.85rem;
-    opacity: 0.85;
 }
 
 /* Col 8 - Estimated payout: right-aligned, green accent via .payout */
