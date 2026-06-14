@@ -15,6 +15,7 @@ mod leaderboard;
 mod leagues;
 mod matches;
 mod platform;
+mod profile;
 mod seo;
 mod signup;
 mod stake;
@@ -55,6 +56,7 @@ pub fn router() -> Router<AppState> {
         .route("/results", get(matches::results))
         .route("/matches/:id/bet", post(bets::place_or_update))
         .route("/leaderboard", get(leaderboard::index))
+        .route("/me", get(profile::me))
         .route("/leagues", get(leagues::index).post(leagues::create))
         .route("/leagues/join", post(leagues::join))
         .route("/leagues/:id", get(leagues::show))

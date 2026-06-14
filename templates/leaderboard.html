@@ -52,6 +52,12 @@
                 <span class="player-name">
                     {{ r.display_name }}{% if r.is_me %} ({{ loc.f("toi", "you") }}){% endif %}
                     {% if !r.eligible %}<span class="non-eligible-badge">{{ loc.f("non éligible", "not eligible") }}</span>{% endif %}
+                    {% if !r.badges.is_empty() %}
+                    <span class="player-badges">
+                        {% for b in r.badges %}<img class="player-badge" src="{{ b.icon }}" alt="{{ b.name }}" title="{{ b.name }}">{% endfor %}
+                        {% if r.extra_badges > 0 %}<span class="player-badge-more">+{{ r.extra_badges }}</span>{% endif %}
+                    </span>
+                    {% endif %}
                 </span>
             </td>
             <td data-label="{{ loc.f("Mise", "Stake") }}">
@@ -81,4 +87,9 @@
     "Barème : 3 points pour un score exact, 1 point pour le bon vainqueur (ou bon match nul), 0 sinon. Départage : scores exacts, puis paris résolus, puis ancienneté du compte.",
     "Scoring: 3 points for an exact score, 1 point for the right winner (or draw), 0 otherwise. Tiebreak: exact scores, then settled bets, then account creation date."
 ) }}</p>
+<style>
+    .player-badges { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; margin-left: 0.3rem; }
+    .player-badge { width: 20px; height: 20px; }
+    .player-badge-more { font-size: 0.75rem; font-weight: 700; color: var(--navy); opacity: 0.8; }
+</style>
 {% endblock %}

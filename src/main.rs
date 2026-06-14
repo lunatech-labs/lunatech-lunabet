@@ -9,6 +9,7 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
+mod achievements;
 mod characters;
 mod config;
 mod error;
@@ -149,7 +150,8 @@ async fn main() -> anyhow::Result<()> {
         // does this automatically on each scoring tick.
         scoring::recompute_all(&pool).await.context("recomputing points")?;
         streaks::recompute_all(&pool).await.context("recomputing streaks")?;
-        println!("Streaks recomputed.");
+        achievements::evaluate_all(&pool).await.context("evaluating achievements")?;
+        println!("Streaks recomputed and achievements evaluated.");
         return Ok(());
     }
 
@@ -191,6 +193,9 @@ async fn main() -> anyhow::Result<()> {
                 }
                 if let Err(e) = streaks::recompute_all(&s.pool).await {
                     tracing::warn!("streak recompute failed: {e:#}");
+                }
+                if let Err(e) = achievements::evaluate_all(&s.pool).await {
+                    tracing::warn!("achievement evaluation failed: {e:#}");
                 }
                 if let Err(e) = notifications::send_match_reminders(&s).await {
                     tracing::warn!("match reminders failed: {e:#}");

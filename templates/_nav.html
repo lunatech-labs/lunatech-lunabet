@@ -2,7 +2,7 @@
    stays identical across the app. Set `nav_active` on the page struct to one
    of: today, matches, results, leaderboard, stake, admin_stakes,
    admin_settings. Requires: user_name, total_points, is_admin, loc. #}
-<span class="user">{{ user_name }} - {{ total_points }} pts</span>
+<a href="/me" class="user{% if nav_active == "profile" %} active{% endif %}">{{ user_name }} - {{ total_points }} pts</a>
 <a href="/today"{% if nav_active == "today" %} class="active"{% endif %}>{{ loc.f("Aujourd'hui", "Today") }}</a>
 <a href="/matches"{% if nav_active == "matches" %} class="active"{% endif %}>{{ loc.f("Mes pronos", "Predictions") }}</a>
 <a href="/results"{% if nav_active == "results" %} class="active"{% endif %}>{{ loc.f("Résultats", "Results") }}</a>

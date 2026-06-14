@@ -4,6 +4,7 @@ use askama::Template;
 use axum::extract::State;
 use axum::response::{Html, IntoResponse, Response};
 
+use crate::achievements;
 use crate::characters;
 use crate::error::AppResult;
 use crate::i18n::Locale;
@@ -11,6 +12,12 @@ use crate::routes::auth::AuthUser;
 use crate::stakes;
 use crate::state::AppState;
 use crate::tenant::{Tenant, TenantCtx};
+
+/// A single badge icon shown next to a player's name.
+pub struct BadgeChip {
+    pub icon: String,
+    pub name: &'static str,
+}
 
 pub struct Row {
     pub rank: usize,
@@ -27,6 +34,9 @@ pub struct Row {
     pub best_streak: i32,
     /// Public path to the Tsubasa-inspired avatar assigned to this user.
     pub avatar: String,
+    /// Up to 3 badge icons, plus an overflow count for the rest.
+    pub badges: Vec<BadgeChip>,
+    pub extra_badges: usize,
 }
 
 #[derive(Template)]
@@ -57,11 +67,25 @@ pub async fn index(
     let payouts = stakes::compute_payouts(pot.total_eur, &top_paid);
 
     let payout_map: HashMap<_, _> = payouts.iter().map(|p| (p.user_id, p.payout_eur)).collect();
+    let badges_map = achievements::earned_by_user(&state.pool, tenant.id).await?;
 
     let rows = board
         .iter()
         .enumerate()
-        .map(|(i, r)| Row {
+        .map(|(i, r)| {
+            let codes = badges_map.get(&r.user_id).cloned().unwrap_or_default();
+            let extra_badges = codes.len().saturating_sub(3);
+            let badges = codes
+                .iter()
+                .take(3)
+                .filter_map(|c| {
+                    achievements::def(c).map(|d| BadgeChip {
+                        icon: d.icon_path(),
+                        name: d.name(loc),
+                    })
+                })
+                .collect();
+            Row {
             rank: i + 1,
             display_name: r.display_name.clone(),
             points: r.points,
@@ -75,6 +99,9 @@ pub async fn index(
             current_streak: r.current_streak,
             best_streak: r.best_streak,
             avatar: characters::path_for(r.user_id),
+            badges,
+            extra_badges,
+            }
         })
         .collect();
 

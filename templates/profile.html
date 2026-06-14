@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ loc.f("Mon profil", "My profile") }} - LunaBet{% endblock %}
+{% block nav %}{% include "_nav.html" %}{% endblock %}
+{% block content %}
+<h1>{{ loc.f("Mon profil", "My profile") }}</h1>
+
+{% if !unlocked.is_empty() %}
+<div class="badge-toast" role="status">
+    🏅 {{ loc.f("Badge débloqué :", "Badge unlocked:") }}
+    {% for n in unlocked %}<strong>{{ n }}</strong>{% if !loop.last %}, {% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<section class="profile-head">
+    <div class="profile-stat"><span class="stat-value">{{ total_points }}</span><span class="stat-label">{{ loc.f("Points", "Points") }}</span></div>
+    <div class="profile-stat"><span class="stat-value">🔥 {{ current_streak }}</span><span class="stat-label">{{ loc.f("Série actuelle", "Current streak") }}</span></div>
+    <div class="profile-stat"><span class="stat-value">{{ best_streak }}</span><span class="stat-label">{{ loc.f("Meilleure série", "Best streak") }}</span></div>
+    <div class="profile-stat"><span class="stat-value">{{ earned_count }} / {{ total_badges }}</span><span class="stat-label">{{ loc.f("Badges", "Badges") }}</span></div>
+</section>
+
+<section class="card">
+    <h2>{{ loc.f("Badges", "Badges") }}</h2>
+    <ul class="badge-grid">
+        {% for b in badges %}
+        <li class="badge {% if b.earned %}earned{% else %}locked{% endif %}">
+            <img class="badge-icon" src="{{ b.icon }}" alt="" aria-hidden="true">
+            <div class="badge-body">
+                <span class="badge-name">{{ b.name }}</span>
+                <span class="badge-desc">{{ b.desc }}</span>
+                {% match b.progress %}
+                    {% when Some with (p) %}<span class="badge-progress">{{ p }}</span>
+                    {% when None %}{% endmatch %}
+            </div>
+            {% if b.earned %}<span class="badge-check" title="{{ loc.f("Obtenu", "Earned") }}">✓</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+
+<style>
+    .badge-toast {
+        background: var(--gold-light); border: 2px solid var(--ink);
+        border-radius: 4px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-weight: 700;
+    }
+    .profile-head { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem; }
+    .profile-stat {
+        display: flex; flex-direction: column; align-items: center; min-width: 90px;
+        background: var(--paper-light); border: 2px solid var(--ink); border-radius: 6px;
+        padding: 0.6rem 1rem;
+    }
+    .stat-value { font-family: "Bebas Neue", sans-serif; font-size: 1.8rem; color: var(--navy); line-height: 1; }
+    .stat-label { font-size: 0.8rem; opacity: 0.7; }
+    .badge-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.8rem; }
+    .badge {
+        display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem;
+        border: 2px solid var(--ink); border-radius: 6px; background: var(--paper-light);
+    }
+    .badge.locked { opacity: 0.55; filter: grayscale(0.8); }
+    .badge-icon { width: 48px; height: 48px; flex: none; }
+    .badge-body { display: flex; flex-direction: column; flex: 1; }
+    .badge-name { font-weight: 700; color: var(--navy); }
+    .badge-desc { font-size: 0.82rem; opacity: 0.8; }
+    .badge-progress {
+        margin-top: 0.2rem; font-family: "Bebas Neue", sans-serif; letter-spacing: 0.05em;
+        color: var(--red);
+    }
+    .badge-check { color: var(--navy); font-weight: 800; font-size: 1.2rem; }
+</style>
+{% endblock %}
