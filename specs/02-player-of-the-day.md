@@ -1,25 +1,25 @@
-# 02. Joueur du jour
+# 02. Player of the day
 
-Statut: a faire. Priorite: haute. Effort: S.
+Status: to do. Priority: high. Effort: S.
 
-## Objectif
+## Objective
 
-Mettre en avant chaque jour le meilleur pronostiqueur de la veille. La reconnaissance publique cree une raison de revenir voir "qui a gagne" et valorise les joueurs sans monopoliser le classement general.
+Highlight the best predictor of the previous day, every day. Public recognition creates a reason to come back to see "who won" and rewards players without monopolizing the general leaderboard.
 
 ## User stories
 
-- En tant que joueur, je vois en haut du tableau de bord qui a marque le plus de points sur les matchs de la veille.
-- En tant que joueur du jour, je vois une mise en avant de mon avatar et un libelle "Joueur du jour".
-- L'email digest mentionne le joueur du jour.
+- As a player, I see at the top of the dashboard who scored the most points on the previous day's matches.
+- As the player of the day, I see my avatar highlighted and a "Player of the day" label.
+- The digest email mentions the player of the day.
 
 ## Definition
 
-- Periode: les matchs `FINISHED` dont le `kickoff_at` tombe dans la journee calendaire precedente (fuseau Amsterdam, comme le digest existant).
-- Score du jour: somme des `bets.points` du user sur ces matchs.
-- Gagnant: score du jour le plus eleve. Egalite departagee par nombre de scores exacts, puis ordre alphabetique du nom.
-- Si aucun match termine la veille: pas de joueur du jour.
+- Period: the `FINISHED` matches whose `kickoff_at` falls within the previous calendar day (Amsterdam timezone, like the existing digest).
+- Day score: sum of the user's `bets.points` on those matches.
+- Winner: highest day score. Ties broken by number of exact scores, then alphabetical order of the name.
+- If no match finished the previous day: no player of the day.
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_player_of_the_day.sql
@@ -34,31 +34,31 @@ CREATE TABLE player_of_the_day (
 );
 ```
 
-Cle primaire `(tenant_id, day)` qui rend le calcul idempotent, comme `daily_digests`.
+Primary key `(tenant_id, day)` makes the computation idempotent, like `daily_digests`.
 
 ## Backend
 
-- Calcul dans `src/streaks.rs` ou un nouveau `src/highlights.rs`, fonction `compute_player_of_the_day(pool, tenant, day)`.
-- Branche dans le meme planificateur que le digest quotidien dans [src/notifications.rs](../src/notifications.rs): le calcul precede l'envoi du digest, ainsi l'email peut citer le gagnant.
-- Route de lecture: helper appele par [src/routes/today.rs](../src/routes/today.rs) pour charger l'entree du jour courant (qui reflete la veille).
+- Computation in `src/streaks.rs` or a new `src/highlights.rs`, function `compute_player_of_the_day(pool, tenant, day)`.
+- Wired into the same scheduler as the daily digest in [src/notifications.rs](../src/notifications.rs): the computation precedes the digest send, so the email can cite the winner.
+- Read route: helper called by [src/routes/today.rs](../src/routes/today.rs) to load the current day's entry (which reflects the previous day).
 
 ## UI
 
-- [templates/today.html](../templates/today.html): bandeau "Joueur du jour" en tete, avec avatar ([src/characters.rs](../src/characters.rs)), nom, points marques. Style festif reutilisant `manga-burst.svg`.
-- [templates/emails/daily_digest.html](../templates/emails/daily_digest.html): une ligne "Joueur du jour: X (N pts)".
+- [templates/today.html](../templates/today.html): "Player of the day" banner at the top, with avatar ([src/characters.rs](../src/characters.rs)), name, points scored. Festive style reusing `manga-burst.svg`.
+- [templates/emails/daily_digest.html](../templates/emails/daily_digest.html): a line "Player of the day: X (N pts)".
 
 ## i18n
 
 - "Joueur du jour" / "Player of the day", "a marque" / "scored".
 
-## Cas limites
+## Edge cases
 
-- Egalite: depart deterministe (exacts puis nom) pour eviter un gagnant qui change entre deux calculs.
-- Espace a un seul joueur: il est joueur du jour des qu'il marque, acceptable.
-- Aucun match la veille: ne rien afficher, ne pas inserer de ligne.
+- Tie: deterministic tiebreak (exacts then name) to avoid a winner that changes between two computations.
+- Single-player space: they are player of the day as soon as they score, acceptable.
+- No match the previous day: display nothing, do not insert a row.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Le joueur du jour correspond au plus haut total de points de la veille.
-- Le calcul est idempotent (rejouer ne cree pas de doublon).
-- Le bandeau disparait les jours sans matchs termines.
+- The player of the day matches the highest points total of the previous day.
+- The computation is idempotent (replaying does not create a duplicate).
+- The banner disappears on days with no finished matches.

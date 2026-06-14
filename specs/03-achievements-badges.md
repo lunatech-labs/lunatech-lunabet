@@ -1,31 +1,31 @@
-# 03. Badges et hauts faits
+# 03. Achievements and badges
 
-Statut: a faire. Priorite: moyenne. Effort: M.
+Status: to do. Priority: medium. Effort: M.
 
-## Objectif
+## Objective
 
-Offrir une progression visible et collectionnable au-dela du classement. Les badges donnent des micro-objectifs ("encore 12 points avant le prochain palier") et recompensent des comportements varies, pas seulement etre premier.
+Offer visible, collectible progression beyond the leaderboard. Badges provide micro-goals ("12 more points before the next tier") and reward varied behaviors, not just being first.
 
 ## User stories
 
-- En tant que joueur, je gagne un badge quand je realise un haut fait (premier score exact, journee parfaite, paliers de points).
-- En tant que joueur, je vois mes badges sur mon profil et le prochain badge a atteindre.
-- En tant que joueur, je vois une notification discrete quand je debloque un badge.
+- As a player, I earn a badge when I achieve a feat (first exact score, perfect day, points tiers).
+- As a player, I see my badges on my profile and the next badge to reach.
+- As a player, I see a discreet notification when I unlock a badge.
 
-## Catalogue initial
+## Initial catalog
 
-| Code | Nom | Condition |
+| Code | Name | Condition |
 |------|-----|-----------|
-| first_exact | Premier sans faute | Premier score exact |
-| perfect_day | Journee parfaite | Tous les pronos d'une journee exacts (min 2 matchs) |
-| pts_50 / pts_100 / pts_250 | Paliers | Atteindre 50 / 100 / 250 points cumules |
-| streak_5 / streak_10 | En feu | Serie de 5 / 10 (voir [01-streaks](01-streaks.md)) |
-| marathon | Marathonien | Parier sur tous les matchs d'une phase |
-| underdog | Outsider | Predire correctement une victoire d'equipe non favorite (ecart de classement) |
+| first_exact | First flawless | First exact score |
+| perfect_day | Perfect day | All of a day's predictions exact (min 2 matches) |
+| pts_50 / pts_100 / pts_250 | Tiers | Reach 50 / 100 / 250 cumulative points |
+| streak_5 / streak_10 | On fire | Streak of 5 / 10 (see [01-streaks](01-streaks.md)) |
+| marathon | Marathoner | Bet on all matches of a stage |
+| underdog | Underdog | Correctly predict a win by a non-favorite team (ranking gap) |
 
-Le catalogue est statique en code (pas de table de definitions), seules les obtentions sont persistees.
+The catalog is static in code (no definitions table), only the awards are persisted.
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_achievements.sql
@@ -38,33 +38,33 @@ CREATE TABLE achievements (
 );
 ```
 
-La cle primaire empeche le double octroi et rend l'evaluation idempotente.
+The primary key prevents double awarding and makes the evaluation idempotent.
 
 ## Backend
 
-- Module `src/achievements.rs`: une fonction par regle, plus `evaluate_user(pool, tenant, user_id)` qui insere les badges manquants (`INSERT ... ON CONFLICT DO NOTHING`).
-- Appel apres le scoring dans [src/main.rs](../src/main.rs), pour les users dont un pari vient d'etre regle.
-- Les badges "outsider" et "marathon" ont besoin d'une notion de favori et de liste des matchs d'une phase: deriver depuis `matches` (stage, group_name) sans donnee externe nouvelle.
+- Module `src/achievements.rs`: one function per rule, plus `evaluate_user(pool, tenant, user_id)` that inserts the missing badges (`INSERT ... ON CONFLICT DO NOTHING`).
+- Call after scoring in [src/main.rs](../src/main.rs), for the users whose bet has just been settled.
+- The "underdog" and "marathon" badges need a notion of favorite and a list of a stage's matches: derive from `matches` (stage, group_name) without any new external data.
 
 ## UI
 
-- Nouvelle page profil (voir [09-profile-rivalries](09-profile-rivalries.md)) qui liste les badges obtenus et grises ceux a venir, avec la condition.
-- Petit rang de badges sur [templates/leaderboard.html](../templates/leaderboard.html) a cote du nom (3 max, le reste en "+N").
-- Toast htmx "Badge debloque" au prochain chargement de page apres obtention.
-- Icones SVG dediees dans `static/badges/`, style coherent avec les avatars existants.
+- New profile page (see [09-profile-rivalries](09-profile-rivalries.md)) that lists the earned badges and grays out the upcoming ones, with the condition.
+- Small badge row on [templates/leaderboard.html](../templates/leaderboard.html) next to the name (3 max, the rest as "+N").
+- "Badge unlocked" htmx toast on the next page load after earning it.
+- Dedicated SVG icons in `static/badges/`, style consistent with the existing avatars.
 
 ## i18n
 
-Nom et description de chaque badge dans les deux langues, table de correspondance en Rust.
+Name and description of each badge in both languages, mapping table in Rust.
 
-## Cas limites
+## Edge cases
 
-- Recalcul historique: `evaluate_user` doit pouvoir tourner sur tout l'historique sans creer de doublons.
-- Ajout d'un badge au catalogue: un balayage unique attribue le badge retroactivement aux eligibles.
-- Journee parfaite avec un seul match: exclue pour eviter la trivialite.
+- Historical recomputation: `evaluate_user` must be able to run over the entire history without creating duplicates.
+- Adding a badge to the catalog: a one-time sweep awards the badge retroactively to those eligible.
+- Perfect day with a single match: excluded to avoid triviality.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Un badge ne peut etre obtenu qu'une fois.
-- L'ajout d'une regle n'impacte pas les badges deja attribues.
-- Le profil affiche obtenus et prochains paliers avec progression chiffree.
+- A badge can only be earned once.
+- Adding a rule does not affect the badges already awarded.
+- The profile displays earned badges and next tiers with numeric progression.

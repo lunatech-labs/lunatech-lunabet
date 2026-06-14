@@ -1,56 +1,56 @@
-# 09. Profil, stats et rivalites
+# 09. Profile, stats and rivalries
 
-Statut: a faire. Priorite: moyenne. Effort: M.
+Status: to do. Priority: medium. Effort: M.
 
-## Objectif
+## Objective
 
-Donner a chaque joueur une page personnelle qui raconte son parcours (precision, meilleurs et pires pronos, badges, serie) et introduire des rivalites nominatives ("tu mets 3-2 a Marie cette semaine"). Les stats personnelles et la rivalite creent un attachement emotionnel qui depasse le classement brut.
+Give each player a personal page that tells their story (accuracy, best and worst predictions, badges, streak) and introduce named rivalries ("you beat Marie 3-2 this week"). Personal stats and rivalry create an emotional attachment that goes beyond the raw leaderboard.
 
 ## User stories
 
-- En tant que joueur, j'ai une page profil avec mes statistiques: points, precision (% de scores exacts), serie, badges.
-- En tant que joueur, je vois mon meilleur et mon pire prono.
-- En tant que joueur, je peux me comparer en tete-a-tete avec un autre membre (bilan de la semaine, de la competition).
+- As a player, I have a profile page with my statistics: points, accuracy (% of exact scores), streak, badges.
+- As a player, I see my best and my worst prediction.
+- As a player, I can compare myself head to head with another member (weekly tally, competition tally).
 
-## Donnees
+## Data
 
-Aucune nouvelle table obligatoire: tout se derive de `bets`, `matches`, et des fonctionnalites liees ([01-streaks](01-streaks.md), [03-achievements-badges](03-achievements-badges.md)).
+No new table required: everything is derived from `bets`, `matches`, and the related features ([01-streaks](01-streaks.md), [03-achievements-badges](03-achievements-badges.md)).
 
-Statistiques calculees:
-- Points totaux, nombre de paris regles.
-- Precision exacte = scores exacts / paris regles.
-- Precision resultat = (exacts + bons resultats) / paris regles.
-- Meilleur prono: le score exact sur le match le plus "improbable" (heuristique simple: ecart de buts eleve ou affiche).
-- Pire prono: pari avec le plus gros ecart au resultat reel.
+Computed statistics:
+- Total points, number of settled bets.
+- Exact accuracy = exact scores / settled bets.
+- Result accuracy = (exact + correct results) / settled bets.
+- Best prediction: the exact score on the most "improbable" match (simple heuristic: large goal gap or posted odds).
+- Worst prediction: bet with the biggest gap to the actual result.
 
 ## Backend
 
-- Module routes `src/routes/profile.rs`:
-  - `GET /profile`: mon profil.
-  - `GET /profile/:user_id`: profil public d'un membre du meme tenant (lecture seule, donnees deja publiques via le classement).
-  - `GET /h2h/:user_id`: comparaison tete-a-tete avec moi.
-- Requetes agregees sur `bets` filtrees par user et tenant. Reutiliser les helpers de [src/stakes.rs](../src/stakes.rs) la ou possible.
+- Routes module `src/routes/profile.rs`:
+  - `GET /profile`: my profile.
+  - `GET /profile/:user_id`: public profile of a member of the same tenant (read only, data already public via the leaderboard).
+  - `GET /h2h/:user_id`: head to head comparison with me.
+- Aggregated queries on `bets` filtered by user and tenant. Reuse the helpers from [src/stakes.rs](../src/stakes.rs) where possible.
 
-Tete-a-tete: sur l'ensemble des matchs termines, comparer les points de chaque joueur, compter qui a fait mieux match par match, en deduire un score "victoires-defaites-egalites".
+Head to head: across all finished matches, compare each player's points, count who did better match by match, and derive a "wins-losses-draws" score.
 
 ## UI
 
-- [templates/profile.html](../templates/profile.html): avatar, nom, stats clefs, badges, serie, meilleur et pire prono.
-- [templates/h2h.html](../templates/h2h.html): deux colonnes, bilan, evolution semaine.
-- Liens depuis [templates/leaderboard.html](../templates/leaderboard.html): cliquer un nom ouvre son profil; bouton "Defier" ouvre le tete-a-tete.
+- [templates/profile.html](../templates/profile.html): avatar, name, key stats, badges, streak, best and worst prediction.
+- [templates/h2h.html](../templates/h2h.html): two columns, tally, weekly trend.
+- Links from [templates/leaderboard.html](../templates/leaderboard.html): clicking a name opens their profile; a "Challenge" button opens the head to head.
 
 ## i18n
 
 - "Profil" / "Profile", "Precision" / "Accuracy", "Meilleur prono" / "Best call", "Tete-a-tete" / "Head to head".
 
-## Cas limites
+## Edge cases
 
-- Joueur sans pari regle: precision masquee, message "pas encore de resultats".
-- Tete-a-tete entre joueurs n'ayant aucun match commun parie: afficher "pas assez de donnees".
-- Respect du scope tenant: on ne compare jamais des joueurs de tenants differents.
+- Player with no settled bet: accuracy hidden, message "no results yet".
+- Head to head between players who have not bet on any common match: show "not enough data".
+- Respect the tenant scope: we never compare players from different tenants.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Les pourcentages de precision sont coherents avec les comptes du classement.
-- Le profil public ne montre que des donnees deja exposees publiquement.
-- Le tete-a-tete reflete correctement le bilan match par match.
+- The accuracy percentages are consistent with the leaderboard counts.
+- The public profile only shows data already exposed publicly.
+- The head to head correctly reflects the match by match tally.

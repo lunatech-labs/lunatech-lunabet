@@ -1,27 +1,27 @@
-# 05. Jokers et multiplicateurs
+# 05. Jokers and multipliers
 
-Statut: a faire. Priorite: moyenne. Effort: M.
+Status: to do. Priority: medium. Effort: M.
 
-## Objectif
+## Objective
 
-Ajouter une couche de strategie et de tension: permettre de miser un "joker" qui double les points d'un match choisi. Un joker est une mise de confiance: le joueur designe le match sur lequel il est le plus sur, et si ce pari rapporte des points (score exact ou bon resultat), ces points sont doubles. Cela cree un dilemme avant le coup d'envoi (ou placer sa confiance) et de l'euphorie ou du regret apres.
+Add a layer of strategy and tension: allow staking a "joker" that doubles the points of a chosen match. A joker is a confidence stake: the player designates the match they are most sure about, and if that bet earns points (exact score or correct outcome), those points are doubled. This creates a dilemma before kickoff (where to place your confidence) and euphoria or regret afterwards.
 
-Fonctionnalite opt-in par espace pour ne pas perturber les espaces qui veulent garder le scoring simple.
+Opt-in feature per space so as not to disrupt spaces that want to keep scoring simple.
 
 ## User stories
 
-- En tant que joueur, je peux marquer un match a venir comme mon "joker" pour la phase en cours.
-- En tant que joueur, mes points sur ce match sont doubles.
-- En tant qu'admin, j'active ou desactive les jokers pour mon espace.
+- As a player, I can mark an upcoming match as my "joker" for the current phase.
+- As a player, my points on this match are doubled.
+- As an admin, I enable or disable jokers for my space.
 
-## Regles
+## Rules
 
-- **Un joker par phase de competition.** La phase est portee par `matches.stage` (phase de groupes, huitiemes, quarts, demies, finale). Un joueur pose au plus un joker parmi les matchs d'une meme phase.
-- Le joker doit etre pose avant le `kickoff_at` du match, comme un pari.
-- Multiplicateur applique au calcul: `points_effectifs = points_base * multiplier`.
-- Modifiable tant que le match cible n'a pas commence et tant qu'aucun match de la phase n'a verrouille le choix (voir cas limites).
+- **One joker per competition phase.** The phase is carried by `matches.stage` (group phase, round of 16, quarter-finals, semi-finals, final). A player places at most one joker among the matches of the same phase.
+- The joker must be placed before the match `kickoff_at`, like a bet.
+- Multiplier applied at computation: `points_effectifs = points_base * multiplier`.
+- Editable as long as the target match has not started and as long as no match of the phase has locked the choice (see edge cases).
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_multipliers.sql
@@ -30,38 +30,38 @@ ALTER TABLE bets    ADD COLUMN multiplier INT NOT NULL DEFAULT 1
     CHECK (multiplier IN (1, 2));
 ```
 
-Le joker est porte par le pari lui-meme (`bets.multiplier = 2`). Contrainte applicative: au plus un pari avec `multiplier = 2` par user et par phase (`matches.stage`).
+The joker is carried by the bet itself (`bets.multiplier = 2`). Application constraint: at most one bet with `multiplier = 2` per user and per phase (`matches.stage`).
 
 ## Backend
 
-- [src/scoring.rs](../src/scoring.rs): `compute_points` reste inchange pour la base, mais `recompute_all` multiplie par `bets.multiplier` avant d'ecrire `bets.points`. Garder une trace claire: stocker `points` comme valeur finale (deja x multiplier).
-- [src/routes/bets.rs](../src/routes/bets.rs): nouvelle action `POST /bets/:match_id/joker` (toggle) qui verifie:
-  - jokers actives pour le tenant,
-  - match encore ouvert,
-  - aucun autre joker deja pose dans la meme phase (sinon le deplacer, avec confirmation).
-- Determiner la phase via `matches.stage` du match cible, et chercher un eventuel joker existant sur les autres matchs de cette phase pour le meme user.
-- Validation de l'unicite par phase en transaction.
+- [src/scoring.rs](../src/scoring.rs): `compute_points` stays unchanged for the base, but `recompute_all` multiplies by `bets.multiplier` before writing `bets.points`. Keep a clear trace: store `points` as the final value (already x multiplier).
+- [src/routes/bets.rs](../src/routes/bets.rs): new action `POST /bets/:match_id/joker` (toggle) which verifies:
+  - jokers enabled for the tenant,
+  - match still open,
+  - no other joker already placed in the same phase (otherwise move it, with confirmation).
+- Determine the phase via `matches.stage` of the target match, and look for any existing joker on the other matches of this phase for the same user.
+- Validation of per-phase uniqueness in a transaction.
 
 ## UI
 
-- [templates/match_card.html](../templates/match_card.html): bouton "x2 joker" sur les matchs ouverts si la fonctionnalite est active. Etat visuel distinct quand pose.
-- Bandeau d'aide la premiere fois ("Un joker par phase, double tes points").
-- [templates/admin_settings.html](../templates/admin_settings.html): interrupteur "Activer les jokers".
+- [templates/match_card.html](../templates/match_card.html): "x2 joker" button on open matches if the feature is active. Distinct visual state when placed.
+- Help banner the first time ("One joker per phase, double your points").
+- [templates/admin_settings.html](../templates/admin_settings.html): "Enable jokers" switch.
 
 ## i18n
 
 - "Joker" / "Joker", "Double tes points" / "Double your points", "Un joker par phase" / "One joker per phase".
 
-## Cas limites
+## Edge cases
 
-- Deplacer un joker deja pose dans la phase: retirer l'ancien, poser le nouveau, en transaction. Possible tant que le nouveau match cible n'a pas commence.
-- Joker sur un match deja commence: refuse.
-- Joker pose sur un match deja joue de la phase: le choix est fige des le coup d'envoi de ce match; on ne peut plus le deplacer vers un autre match de la meme phase, sinon on permettrait de changer d'avis apres coup.
-- Phase a un seul match (finale): le joker y est trivial mais autorise.
-- Desactivation des jokers par l'admin en cours de competition: les jokers deja poses restent honores, plus aucun nouveau possible.
+- Move a joker already placed in the phase: remove the old one, place the new one, in a transaction. Possible as long as the new target match has not started.
+- Joker on a match that has already started: refused.
+- Joker placed on a match of the phase that has already been played: the choice is fixed from the kickoff of that match; it can no longer be moved to another match of the same phase, otherwise it would allow changing your mind after the fact.
+- Phase with a single match (final): the joker is trivial there but allowed.
+- Disabling jokers by the admin during the competition: jokers already placed remain honored, no new one is possible.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Un seul joker actif par periode et par joueur.
-- Les points du match joker sont effectivement doubles dans le classement.
-- Espace sans jokers actives: aucun changement de comportement ni d'UI.
+- A single active joker per period and per player.
+- The points of the joker match are effectively doubled in the leaderboard.
+- Space without jokers enabled: no change in behavior or UI.

@@ -1,52 +1,52 @@
-# 06. Celebration de score en temps reel
+# 06. Real-time score celebration
 
-Statut: a faire. Priorite: moyenne. Effort: S.
+Status: to do. Priority: medium. Effort: S.
 
-## Objectif
+## Objective
 
-Donner un retour gratifiant au moment ou un pari est gagne. Aujourd'hui le scoring tourne en silence toutes les 5 min; on veut un effet visuel (confettis, burst manga, tigre) la premiere fois que l'utilisateur revoit un match qu'il a juste, pour ancrer la boucle de recompense.
+Provide rewarding feedback at the moment a bet is won. Today scoring runs silently every 5 min; we want a visual effect (confetti, manga burst, tiger) the first time the user sees again a match they got right, to anchor the reward loop.
 
 ## User stories
 
-- En tant que joueur, quand je reviens sur l'app apres qu'un de mes pronos a ete valide, je vois une animation de celebration sur les matchs gagnes.
-- L'animation ne se rejoue pas a chaque rechargement: une fois vue, elle s'eteint.
+- As a player, when I come back to the app after one of my predictions has been validated, I see a celebration animation on the won matches.
+- The animation does not replay on every reload: once seen, it turns off.
 
-## Approche
+## Approach
 
-Reutiliser l'esthetique existante: `manga-burst.svg`, le tigre de [static/easter-eggs.js](../static/easter-eggs.js). Pas de websocket: on detecte cote serveur les paris "nouvellement vus comme gagnes".
+Reuse the existing aesthetic: `manga-burst.svg`, the tiger from [static/easter-eggs.js](../static/easter-eggs.js). No websocket: we detect server-side the bets "newly seen as won".
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_bet_seen.sql
 ALTER TABLE bets ADD COLUMN result_seen_at TIMESTAMPTZ;
 ```
 
-Un pari regle (`points` non nul) avec `result_seen_at IS NULL` est "a celebrer".
+A settled bet (`points` non null) with `result_seen_at IS NULL` is "to celebrate".
 
 ## Backend
 
-- [src/routes/today.rs](../src/routes/today.rs) et [src/routes/matches.rs](../src/routes/matches.rs): a la lecture, selectionner les paris regles non encore vus de l'utilisateur, les exposer au template, puis les marquer `result_seen_at = NOW()` (apres rendu, ou via un petit POST de confirmation pour eviter de marquer si la page n'est pas reellement affichee).
-- Distinguer le niveau de celebration: exact (3 pts, gros effet), outcome (1 pt, effet leger).
+- [src/routes/today.rs](../src/routes/today.rs) and [src/routes/matches.rs](../src/routes/matches.rs): on read, select the user's settled bets not yet seen, expose them to the template, then mark them `result_seen_at = NOW()` (after render, or via a small confirmation POST to avoid marking if the page is not actually displayed).
+- Distinguish the celebration level: exact (3 pts, big effect), outcome (1 pt, light effect).
 
 ## UI
 
-- [templates/match_card.html](../templates/match_card.html): attribut `data-celebrate="exact|outcome"` sur les cartes concernees.
-- Nouveau `static/celebrate.js`: au chargement, scanne les cartes a celebrer et declenche confettis ou tigre, en s'appuyant sur les helpers existants des easter eggs (factoriser le code du tigre).
-- Sons optionnels desactives par defaut.
+- [templates/match_card.html](../templates/match_card.html): `data-celebrate="exact|outcome"` attribute on the relevant cards.
+- New `static/celebrate.js`: on load, scans the cards to celebrate and triggers confetti or tiger, relying on the existing easter egg helpers (factor out the tiger code).
+- Optional sounds disabled by default.
 
 ## i18n
 
-- Messages courts "Score exact ! +3" / "Exact score! +3", "Bien vu ! +1" / "Nice! +1".
+- Short messages "Score exact ! +3" / "Exact score! +3", "Bien vu ! +1" / "Nice! +1".
 
-## Cas limites
+## Edge cases
 
-- Beaucoup de matchs gagnes d'un coup (retour apres plusieurs jours): limiter a une celebration agregee ("5 pronos gagnes, +11 pts") plutot que cinq animations.
-- Pari perdu: pas d'animation, juste l'affichage existant.
-- Le marquage `result_seen_at` doit etre robuste au double chargement (idempotent).
+- Many matches won at once (returning after several days): limit to an aggregated celebration ("5 predictions won, +11 pts") rather than five animations.
+- Lost bet: no animation, just the existing display.
+- The `result_seen_at` marking must be robust to double loading (idempotent).
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- L'animation apparait une seule fois par match gagne et par utilisateur.
-- L'intensite reflete exact vs outcome.
-- Aucune animation pour les paris deja vus ou perdus.
+- The animation appears only once per won match and per user.
+- The intensity reflects exact vs outcome.
+- No animation for bets already seen or lost.

@@ -1,21 +1,21 @@
-# 04. Ligues privees entre amis
+# 04. Private leagues among friends
 
-Statut: a faire. Priorite: haute. Effort: M.
+Status: to do. Priority: high. Effort: M.
 
-## Objectif
+## Objective
 
-Permettre, a l'interieur d'un espace, de creer des mini-ligues regroupant un sous-ensemble de joueurs avec leur propre classement. La comparaison sociale rapprochee (mes amis, mes collegues d'equipe) est un levier de retention bien plus fort que le classement global ou les retardataires decrochent vite.
+Allow, within a space, the creation of mini-leagues bringing together a subset of players with their own leaderboard. Close social comparison (my friends, my teammates) is a far stronger retention lever than the global leaderboard, where stragglers quickly drop off.
 
-A ne pas confondre avec les espaces (tenants): une ligue est un groupe interne a un espace, qui partage les memes matchs et les memes paris. Aucun nouveau pari n'est cree, on filtre seulement le classement.
+Not to be confused with spaces (tenants): a league is a group internal to a space, which shares the same matches and the same bets. No new bet is created, we only filter the leaderboard.
 
 ## User stories
 
-- En tant que joueur, je cree une ligue et j'obtiens un code de partage.
-- En tant que joueur, je rejoins une ligue avec un code.
-- En tant que joueur, je vois un classement filtre sur les membres de ma ligue, reutilisant les points existants.
-- En tant que createur, je renomme ou supprime ma ligue et je retire des membres.
+- As a player, I create a league and obtain a share code.
+- As a player, I join a league with a code.
+- As a player, I see a leaderboard filtered to the members of my league, reusing the existing points.
+- As a creator, I rename or delete my league and I remove members.
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_leagues.sql
@@ -37,48 +37,48 @@ CREATE TABLE league_members (
 );
 ```
 
-Le `join_code` est court et lisible (par exemple 6 caracteres base32 sans ambiguites). Unicite par tenant.
+The `join_code` is short and readable (for example 6 base32 characters without ambiguities). Uniqueness per tenant.
 
 ## Backend
 
-Nouveau module routes `src/routes/leagues.rs`:
+New routes module `src/routes/leagues.rs`:
 
-- `GET /leagues`: mes ligues + formulaire de creation / jonction.
-- `POST /leagues`: creer (genere `join_code`, ajoute le createur comme membre).
-- `POST /leagues/join`: rejoindre via code.
-- `GET /leagues/:id`: classement de la ligue.
-- `POST /leagues/:id/leave`, `POST /leagues/:id/remove` (createur), `POST /leagues/:id/rename`, `DELETE /leagues/:id`.
+- `GET /leagues`: my leagues + creation / join form.
+- `POST /leagues`: create (generates `join_code`, adds the creator as a member).
+- `POST /leagues/join`: join via code.
+- `GET /leagues/:id`: league leaderboard.
+- `POST /leagues/:id/leave`, `POST /leagues/:id/remove` (creator), `POST /leagues/:id/rename`, `DELETE /leagues/:id`.
 
-Le classement reutilise la logique de [src/stakes.rs](../src/stakes.rs) en ajoutant un filtre `user_id IN (SELECT user_id FROM league_members WHERE league_id = $1)`. Refactorer `load_leaderboard` pour accepter un filtre optionnel de membres.
+The leaderboard reuses the logic of [src/stakes.rs](../src/stakes.rs) by adding a filter `user_id IN (SELECT user_id FROM league_members WHERE league_id = $1)`. Refactor `load_leaderboard` to accept an optional members filter.
 
-Garde-fous:
-- Toutes les routes exigent `AuthUser` et verifient que la ligue appartient au tenant courant.
-- Seul le createur supprime ou retire des membres.
-- Plafond raisonnable de ligues par user (par exemple 20) pour limiter l'abus.
+Safeguards:
+- All routes require `AuthUser` and verify that the league belongs to the current tenant.
+- Only the creator deletes or removes members.
+- A reasonable cap on leagues per user (for example 20) to limit abuse.
 
 ## UI
 
-- Nouvelle entree de menu "Ligues" dans [templates/_nav.html](../templates/_nav.html).
-- [templates/leagues.html](../templates/leagues.html): liste de mes ligues, bouton creer, champ code pour rejoindre, partage du code (copier dans le presse-papier).
-- [templates/league.html](../templates/league.html): classement filtre, reutilise le composant visuel du classement global.
+- New "Leagues" menu entry in [templates/_nav.html](../templates/_nav.html).
+- [templates/leagues.html](../templates/leagues.html): list of my leagues, create button, code field to join, code sharing (copy to clipboard).
+- [templates/league.html](../templates/league.html): filtered leaderboard, reuses the visual component of the global leaderboard.
 
-## Stakes et cagnotte
+## Stakes and pot
 
-Les ligues sont purement ludiques au depart: pas de cagnotte par ligue. La cagnotte reste au niveau de l'espace ([src/stakes.rs](../src/stakes.rs)). Une cagnotte par ligue est une extension future, hors scope.
+Leagues are purely for fun at the start: no pot per league. The pot stays at the space level ([src/stakes.rs](../src/stakes.rs)). A pot per league is a future extension, out of scope.
 
 ## i18n
 
 - "Ligues" / "Leagues", "Creer une ligue" / "Create a league", "Code d'invitation" / "Join code", "Rejoindre" / "Join".
 
-## Cas limites
+## Edge cases
 
-- Code en collision: regenerer jusqu'a unicite.
-- Rejoindre deux fois: `ON CONFLICT DO NOTHING`.
-- Createur qui quitte: transferer la propriete au plus ancien membre, ou supprimer si vide.
-- Ligue vide apres depart: suppression automatique optionnelle.
+- Code collision: regenerate until unique.
+- Joining twice: `ON CONFLICT DO NOTHING`.
+- Creator who leaves: transfer ownership to the oldest member, or delete if empty.
+- Empty league after departure: optional automatic deletion.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Un classement de ligue n'affiche que ses membres, avec les memes points que le classement global.
-- Un code permet de rejoindre, un mauvais code renvoie une erreur claire.
-- Les droits createur sont respectes (rename, remove, delete).
+- A league leaderboard only shows its members, with the same points as the global leaderboard.
+- A code allows joining, a bad code returns a clear error.
+- Creator rights are respected (rename, remove, delete).

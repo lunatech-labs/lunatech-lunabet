@@ -1,26 +1,26 @@
-# 01. Series (streaks)
+# 01. Streaks
 
-Statut: a faire. Priorite: haute. Effort: S.
+Status: to do. Priority: high. Effort: S.
 
-## Objectif
+## Objective
 
-Recompenser la regularite en comptant les matchs consecutifs ou l'utilisateur a marque des points. La serie est le ressort d'addiction le moins couteux: elle se calcule entierement a partir de `bets.points` deja persiste, et la peur de "casser sa serie" ramene l'utilisateur chaque jour.
+Reward consistency by counting the consecutive matches where the user scored points. The streak is the cheapest addiction driver: it is computed entirely from `bets.points`, which is already persisted, and the fear of "breaking your streak" brings the user back every day.
 
 ## User stories
 
-- En tant que joueur, je vois ma serie en cours ("3 matchs de suite avec des points") sur le tableau de bord.
-- En tant que joueur, je recois un rappel "ne casse pas ta serie" quand j'ai une serie active et que je n'ai pas encore parie sur le prochain match.
-- En tant que joueur, je vois la meilleure serie de l'espace sur le classement.
+- As a player, I see my current streak ("3 matches in a row with points") on the dashboard.
+- As a player, I receive a "don't break your streak" reminder when I have an active streak and have not yet bet on the next match.
+- As a player, I see the space's best streak on the leaderboard.
 
 ## Definition
 
-- Serie courante: nombre de matchs termines consecutifs (par ordre de `kickoff_at`) sur lesquels l'utilisateur avait un pari avec `points > 0`.
-- Un match termine sur lequel l'utilisateur n'avait pas parie, ou a fait 0 point, remet la serie a zero.
-- Meilleure serie: plus longue sequence historique.
+- Current streak: number of consecutive finished matches (ordered by `kickoff_at`) on which the user had a bet with `points > 0`.
+- A finished match on which the user did not bet, or scored 0 points, resets the streak to zero.
+- Best streak: longest historical sequence.
 
-## Modele de donnees
+## Data model
 
-Aucune table obligatoire: la serie peut se deriver a la volee depuis `bets` et `matches`. Pour eviter de recalculer a chaque page, on materialise sur `users`:
+No mandatory table: the streak can be derived on the fly from `bets` and `matches`. To avoid recomputing on every page, we materialize it on `users`:
 
 ```sql
 -- migrations/2026xxxx_streaks.sql
@@ -29,17 +29,17 @@ ALTER TABLE users ADD COLUMN best_streak    INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN streak_updated_match_id BIGINT;
 ```
 
-`streak_updated_match_id` retient le dernier match termine deja pris en compte, pour rendre la mise a jour idempotente.
+`streak_updated_match_id` keeps the last finished match already taken into account, to make the update idempotent.
 
 ## Backend
 
-Nouveau module `src/streaks.rs`:
+New module `src/streaks.rs`:
 
-- `recompute_for_tenant(pool, tenant_id)`: pour chaque user, parcourt ses matchs termines par `kickoff_at`, met a jour `current_streak` / `best_streak`.
-- Appel branche dans la boucle de scoring existante de [src/main.rs](../src/main.rs), juste apres `scoring::recompute_all`, donc toutes les 5 min. Pas de nouveau job.
-- Helper `streak_of(user)` lisible par les routes.
+- `recompute_for_tenant(pool, tenant_id)`: for each user, walks through their finished matches by `kickoff_at`, updates `current_streak` / `best_streak`.
+- Call wired into the existing scoring loop in [src/main.rs](../src/main.rs), right after `scoring::recompute_all`, so every 5 min. No new job.
+- Helper `streak_of(user)` readable by the routes.
 
-Requete de calcul (esquisse, par user):
+Computation query (sketch, per user):
 
 ```sql
 SELECT m.id, b.points
@@ -49,13 +49,13 @@ WHERE m.status = 'FINISHED' AND b.tenant_id = $2
 ORDER BY m.kickoff_at ASC;
 ```
 
-On replie en Rust pour calculer la serie suffixe (current) et le max (best).
+We fold in Rust to compute the suffix streak (current) and the max (best).
 
 ## UI
 
-- [templates/today.html](../templates/today.html): badge "Serie: 3 (record 5)" pres du nom, avec une flamme. Reutiliser le style des badges de tier existants.
-- [templates/leaderboard.html](../templates/leaderboard.html): colonne "Serie" avec icone flamme, triable visuellement.
-- CSS dans [static/style.css](../static/style.css): classe `.streak-badge` qui s'intensifie selon la longueur (3, 5, 10).
+- [templates/today.html](../templates/today.html): "Streak: 3 (best 5)" badge near the name, with a flame. Reuse the style of the existing tier badges.
+- [templates/leaderboard.html](../templates/leaderboard.html): "Streak" column with flame icon, visually sortable.
+- CSS in [static/style.css](../static/style.css): `.streak-badge` class that intensifies with length (3, 5, 10).
 
 ## i18n
 
@@ -63,16 +63,16 @@ On replie en Rust pour calculer la serie suffixe (current) et le max (best).
 
 ## Notifications
 
-Etendre le rappel de match dans [src/notifications.rs](../src/notifications.rs): si le destinataire a `current_streak >= 3` et n'a pas encore parie sur le match a venir, ajouter une ligne d'accroche dans l'email. Pas de nouvel email, juste une variante de contenu.
+Extend the match reminder in [src/notifications.rs](../src/notifications.rs): if the recipient has `current_streak >= 3` and has not yet bet on the upcoming match, add a hook line to the email. No new email, just a content variant.
 
-## Cas limites
+## Edge cases
 
-- Premier match jamais pari: serie 0, pas de badge.
-- Match sans pari au milieu: coupe la serie.
-- Recalcul rejoue: idempotent grace au parcours complet, `best_streak` ne descend jamais.
+- First match never bet on: streak 0, no badge.
+- Match without a bet in the middle: breaks the streak.
+- Replayed recomputation: idempotent thanks to the full walk, `best_streak` never decreases.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- La serie s'affiche correctement apres au moins deux matchs termines consecutifs avec points.
-- Un 0 point casse la serie courante mais conserve le record.
-- La page classement liste les series sans requete N+1 (un seul SELECT agrege ou colonnes materialisees).
+- The streak displays correctly after at least two consecutive finished matches with points.
+- A 0-point score breaks the current streak but keeps the best.
+- The leaderboard page lists the streaks without an N+1 query (a single aggregated SELECT or materialized columns).

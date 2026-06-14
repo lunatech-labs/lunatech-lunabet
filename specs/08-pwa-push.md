@@ -1,28 +1,28 @@
-# 08. PWA et notifications push
+# 08. PWA and push notifications
 
-Statut: a faire. Priorite: moyenne. Effort: L.
+Status: to do. Priority: medium. Effort: L.
 
-## Objectif
+## Objective
 
-Rendre l'app installable sur l'ecran d'accueil et envoyer des notifications push web, bien plus immediates que l'email. Cible: rappels avant coup d'envoi et alertes de gains ("tu viens de gagner 3 pts, tu passes 4e"). Ce socle web est aussi le prerequis du client mobile Tauri ([12-mobile-tauri](12-mobile-tauri.md)).
+Make the app installable on the home screen and send web push notifications, which are far more immediate than email. Target: reminders before kickoff and winnings alerts ("you just won 3 pts, you move up to 4th"). This web foundation is also the prerequisite for the Tauri mobile client ([12-mobile-tauri](12-mobile-tauri.md)).
 
 ## User stories
 
-- En tant que joueur, j'installe LunaBet comme une app (PWA).
-- En tant que joueur, j'autorise les notifications et je recois un push "tu n'as pas encore parie, coup d'envoi dans 1h".
-- En tant que joueur, je recois un push quand mes points changent mon rang.
-- En tant que joueur, je gere mes preferences de notification.
+- As a player, I install LunaBet like an app (PWA).
+- As a player, I allow notifications and I receive a push "you have not bet yet, kickoff in 1h".
+- As a player, I receive a push when my points change my rank.
+- As a player, I manage my notification preferences.
 
-## Composants
+## Components
 
 ### PWA
-- `static/manifest.webmanifest`: nom, icones (reutiliser `favicon.svg`), couleurs du tenant, `display: standalone`, `start_url: /today`.
-- `static/sw.js`: service worker, cache applicatif minimal (offline shell) et reception des push.
-- Balises dans [templates/base.html](../templates/base.html): lien manifest, enregistrement du service worker.
-- Le manifest peut etre servi dynamiquement par tenant pour reprendre les couleurs et le logo (route legere ou template).
+- `static/manifest.webmanifest`: name, icons (reuse `favicon.svg`), tenant colors, `display: standalone`, `start_url: /today`.
+- `static/sw.js`: service worker, minimal application cache (offline shell) and reception of push messages.
+- Tags in [templates/base.html](../templates/base.html): manifest link, service worker registration.
+- The manifest can be served dynamically per tenant to pick up the colors and the logo (lightweight route or template).
 
-### Push web (VAPID)
-Crate Rust: `web-push`.
+### Web push (VAPID)
+Rust crate: `web-push`.
 
 ```sql
 -- migrations/2026xxxx_push_subscriptions.sql
@@ -40,34 +40,34 @@ CREATE TABLE push_subscriptions (
 ALTER TABLE users ADD COLUMN notify_push BOOLEAN NOT NULL DEFAULT TRUE;
 ```
 
-Cles VAPID en variables d'environnement ([src/config.rs](../src/config.rs)): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`.
+VAPID keys as environment variables ([src/config.rs](../src/config.rs)): `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`.
 
 ## Backend
 
 - Routes `src/routes/push.rs`:
-  - `POST /push/subscribe`: enregistre une souscription.
+  - `POST /push/subscribe`: registers a subscription.
   - `POST /push/unsubscribe`.
-  - `GET /push/public-key`: expose la cle publique VAPID.
-- [src/notifications.rs](../src/notifications.rs): a cote des emails existants, envoyer un push quand le canal est dispo. Reutiliser l'idempotence par match (`match_reminders`).
-- Nettoyer les souscriptions invalides (410 Gone) renvoyees par le service de push.
+  - `GET /push/public-key`: exposes the VAPID public key.
+- [src/notifications.rs](../src/notifications.rs): alongside the existing emails, send a push when the channel is available. Reuse the per-match idempotency (`match_reminders`).
+- Clean up invalid subscriptions (410 Gone) returned by the push service.
 
 ## UI
 
-- Bouton "Activer les notifications" sur [templates/today.html](../templates/today.html) ou une page parametres, qui declenche la demande de permission et l'abonnement.
-- Section preferences: cases rappels de match, alertes de rang.
+- "Enable notifications" button on [templates/today.html](../templates/today.html) or a settings page, which triggers the permission request and the subscription.
+- Preferences section: checkboxes for match reminders, rank alerts.
 
 ## i18n
 
-- Titres et corps des push localises selon `users.lang` (deja persiste).
+- Push titles and bodies localized based on `users.lang` (already persisted).
 
-## Cas limites
+## Edge cases
 
-- iOS Safari: push web supporte uniquement en PWA installee (iOS 16.4+). Documenter la limite; le client Tauri ([12-mobile-tauri](12-mobile-tauri.md)) la contourne via le push natif.
-- Permission refusee: retomber sur l'email, ne pas reproposer en boucle.
-- Souscription expiree: purge a la premiere erreur d'envoi.
+- iOS Safari: web push supported only in an installed PWA (iOS 16.4+). Document the limit; the Tauri client ([12-mobile-tauri](12-mobile-tauri.md)) works around it via native push.
+- Permission denied: fall back to email, do not keep prompting in a loop.
+- Expired subscription: purge on the first send error.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- L'app s'installe et s'ouvre en standalone.
-- Un push de rappel arrive avant le coup d'envoi pour les abonnes non encore pariants.
-- Les preferences coupent effectivement les push correspondants.
+- The app installs and opens in standalone mode.
+- A reminder push arrives before kickoff for subscribers who have not yet bet.
+- The preferences effectively turn off the corresponding push messages.

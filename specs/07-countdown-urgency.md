@@ -1,45 +1,45 @@
-# 07. Compte a rebours et urgence
+# 07. Countdown and urgency
 
-Statut: a faire. Priorite: haute. Effort: S.
+Status: to do. Priority: high. Effort: S.
 
-## Objectif
+## Objective
 
-Augmenter le taux de pari en creant un sentiment d'urgence avant le coup d'envoi. Un compte a rebours visible ("plus que 23 min pour parier") pousse a l'action immediate, surtout sur les matchs ou l'utilisateur n'a pas encore mise.
+Increase the betting rate by creating a sense of urgency before kickoff. A visible countdown ("only 23 min left to bet") drives immediate action, especially on matches where the user has not yet placed a bet.
 
 ## User stories
 
-- En tant que joueur, je vois sur chaque match ouvert le temps restant avant le coup d'envoi.
-- Quand il reste moins d'une heure et que je n'ai pas parie, l'indicateur passe en mode urgent (couleur accent, pulsation).
-- A l'expiration, la carte bascule automatiquement en "verrouille" sans rechargement manuel.
+- As a player, I see on each open match the time remaining before kickoff.
+- When less than an hour remains and I have not bet, the indicator switches to urgent mode (accent color, pulsing).
+- On expiry, the card automatically flips to "locked" without a manual reload.
 
-## Approche
+## Approach
 
-Tout cote client a partir du `kickoff_at` deja rendu dans le HTML. Pas de nouveau champ ni de requete serveur.
+Everything is client side, based on the `kickoff_at` already rendered in the HTML. No new field and no server request.
 
 ## Backend
 
-- S'assurer que `match_card.html` expose `kickoff_at` en ISO 8601 dans un attribut `data-kickoff` (verifier l'existant, sinon l'ajouter). [src/models.rs](../src/models.rs) a deja `is_open_for_bets()`.
-- Aucune route nouvelle.
+- Make sure `match_card.html` exposes `kickoff_at` in ISO 8601 in a `data-kickoff` attribute (check the existing code, otherwise add it). [src/models.rs](../src/models.rs) already has `is_open_for_bets()`.
+- No new route.
 
 ## UI
 
-- [templates/match_card.html](../templates/match_card.html): element `.countdown[data-kickoff]` sur les matchs ouverts.
-- Nouveau `static/countdown.js`: tick chaque seconde, formate "2h 14m", "23 min", "moins d'1 min". Sous un seuil (60 min) ajoute la classe `.countdown-urgent`. A zero, desactive les inputs du formulaire et ajoute `.locked` sans rechargement.
-- CSS dans [static/style.css](../static/style.css): `.countdown`, `.countdown-urgent` (pulsation, couleur accent du tenant), etat verrouille.
-- S'appuyer sur [static/timezone-converter.js](../static/timezone-converter.js) existant pour la coherence des fuseaux.
+- [templates/match_card.html](../templates/match_card.html): `.countdown[data-kickoff]` element on open matches.
+- New `static/countdown.js`: ticks every second, formats "2h 14m", "23 min", "less than 1 min". Below a threshold (60 min) it adds the `.countdown-urgent` class. At zero, it disables the form inputs and adds `.locked` without reloading.
+- CSS in [static/style.css](../static/style.css): `.countdown`, `.countdown-urgent` (pulsing, tenant accent color), locked state.
+- Rely on the existing [static/timezone-converter.js](../static/timezone-converter.js) for timezone consistency.
 
 ## i18n
 
-- Formats "h" / "h", "min" / "min", "Coup d'envoi imminent" / "Kickoff imminent", "Paris clos" / "Bets closed". Passer les libelles via `data-*` ou un petit dictionnaire injecte selon `loc`.
+- Formats "h" / "h", "min" / "min", "Coup d'envoi imminent" / "Kickoff imminent", "Paris clos" / "Bets closed". Pass the labels via `data-*` or a small dictionary injected based on `loc`.
 
-## Cas limites
+## Edge cases
 
-- Horloge client decalee: tolerance acceptable, le serveur reste l'autorite pour accepter ou refuser un pari (deja le cas via `is_open_for_bets`).
-- Onglet en arriere-plan longtemps: recalculer a partir de l'heure courante, pas d'accumulation de derive.
-- Match deja commence au chargement: rendre directement verrouille.
+- Skewed client clock: acceptable tolerance, the server remains the authority for accepting or rejecting a bet (already the case via `is_open_for_bets`).
+- Tab in the background for a long time: recalculate from the current time, no accumulation of drift.
+- Match already started at load time: render directly as locked.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Le compte a rebours est exact a la minute pres et passe en urgent sous 60 min.
-- A l'expiration, la carte se verrouille sans action utilisateur.
-- Aucune regression sur l'acceptation serveur des paris.
+- The countdown is accurate to the minute and switches to urgent under 60 min.
+- On expiry, the card locks without any user action.
+- No regression on server-side acceptance of bets.

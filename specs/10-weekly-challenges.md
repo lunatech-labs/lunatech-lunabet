@@ -1,18 +1,18 @@
-# 10. Defis hebdomadaires
+# 10. Weekly challenges
 
-Statut: a faire. Priorite: basse. Effort: M.
+Status: to do. Priority: low. Effort: M.
 
-## Objectif
+## Objective
 
-Offrir un objectif court terme renouvele chaque semaine, independant du classement general. Les retardataires au classement gardent une raison de jouer ("defi de la semaine: 5 pronos exacts"), ce qui soutient l'activite sur la duree d'une longue competition.
+Offer a short-term goal that renews every week, independent of the overall ranking. Players who are behind in the standings keep a reason to play ("challenge of the week: 5 exact predictions"), which sustains activity over the course of a long competition.
 
 ## User stories
 
-- En tant que joueur, je vois le defi de la semaine et ma progression.
-- En tant que joueur, je gagne un badge ou une mention quand je le reussis.
-- En tant qu'admin, le defi se genere automatiquement, sans intervention.
+- As a player, I see the challenge of the week and my progress.
+- As a player, I earn a badge or a mention when I complete it.
+- As an admin, the challenge is generated automatically, with no intervention.
 
-## Modele de donnees
+## Data model
 
 ```sql
 -- migrations/2026xxxx_challenges.sql
@@ -34,32 +34,32 @@ CREATE TABLE weekly_challenge_results (
 );
 ```
 
-`kind` parmi un catalogue fixe en code: `exact_count` (N scores exacts), `points_total` (N points), `bet_all` (parier sur tous les matchs de la semaine).
+`kind` from a fixed catalog defined in code: `exact_count` (N exact scores), `points_total` (N points), `bet_all` (bet on all of the week's matches).
 
 ## Backend
 
 - Module `src/challenges.rs`:
-  - `ensure_week(pool, tenant, week_start)`: cree le defi de la semaine si absent (choix du `kind` rotatif deterministe par numero de semaine, pas d'aleatoire car non dispo dans certains contextes).
-  - `recompute_progress(pool, tenant, week_start)`: recalcule la progression de chaque joueur, marque `completed_at` au passage du seuil.
-- Branche dans la boucle de scoring de [src/main.rs](../src/main.rs).
-- A la completion, attribuer un badge via [03-achievements-badges](03-achievements-badges.md) (`code = weekly_<kind>`), ce qui reutilise tout le mecanisme d'affichage et de notification.
+  - `ensure_week(pool, tenant, week_start)`: creates the challenge of the week if it does not exist (the `kind` is chosen by a deterministic rotation based on the week number, no randomness because it is not available in some contexts).
+  - `recompute_progress(pool, tenant, week_start)`: recomputes each player's progress, marks `completed_at` when the threshold is crossed.
+- Hook into the scoring loop in [src/main.rs](../src/main.rs).
+- On completion, award a badge via [03-achievements-badges](03-achievements-badges.md) (`code = weekly_<kind>`), which reuses the entire display and notification mechanism.
 
 ## UI
 
-- Encart "Defi de la semaine" sur [templates/today.html](../templates/today.html): libelle, barre de progression, badge a la cle.
+- "Challenge of the week" card on [templates/today.html](../templates/today.html): label, progress bar, badge at stake.
 
 ## i18n
 
-- Libelles par `kind`: "Reussis 5 scores exacts cette semaine" / "Land 5 exact scores this week", etc.
+- Labels per `kind`: "Reussis 5 scores exacts cette semaine" / "Land 5 exact scores this week", etc.
 
-## Cas limites
+## Edge cases
 
-- Semaine sans match: pas de defi, ne rien creer.
-- Changement de fuseau: aligner `week_start` sur le lundi Amsterdam, coherent avec le digest.
-- Defi `bet_all` quand le nombre de matchs varie: cible = nombre de matchs de la semaine, calculee a la creation.
+- Week with no match: no challenge, create nothing.
+- Time zone change: align `week_start` on the Amsterdam Monday, consistent with the digest.
+- `bet_all` challenge when the number of matches varies: target = number of matches in the week, computed at creation time.
 
-## Criteres d'acceptation
+## Acceptance criteria
 
-- Un defi unique par tenant et par semaine, genere automatiquement.
-- La progression et la completion sont exactes et idempotentes.
-- La completion accorde le badge correspondant.
+- A single challenge per tenant and per week, generated automatically.
+- Progress and completion are accurate and idempotent.
+- Completion grants the corresponding badge.
