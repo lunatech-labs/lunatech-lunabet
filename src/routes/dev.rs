@@ -2,7 +2,7 @@ use askama::Template;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Redirect, Response};
-use axum_extra::extract::cookie::{Cookie, PrivateCookieJar, SameSite};
+use axum_extra::extract::cookie::PrivateCookieJar;
 use chrono::{Duration, Utc};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -12,7 +12,6 @@ use crate::i18n::Locale;
 use crate::state::AppState;
 use crate::tenant::{Tenant, TenantCtx};
 
-const SESSION_COOKIE: &str = "lb_session";
 const SESSION_TTL_DAYS: i64 = 30;
 
 struct DevUser {
@@ -114,15 +113,7 @@ pub async fn login_as(
     .execute(&state.pool)
     .await?;
 
-    let mut builder = Cookie::build((SESSION_COOKIE, session_id.to_string()))
-        .path("/")
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .max_age(time::Duration::days(SESSION_TTL_DAYS));
-    if let Some(domain) = state.cfg.cookie_domain() {
-        builder = builder.domain(domain);
-    }
-    let jar = jar.add(builder.build());
+    let jar = crate::routes::auth::set_session_cookie(jar, &state.cfg, session_id);
 
     Ok((jar, Redirect::to("/today")).into_response())
 }

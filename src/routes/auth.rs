@@ -3,7 +3,7 @@ use axum::extract::{FromRequestParts, Query, State};
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Redirect, Response};
-use axum::Form;
+use axum::{Form, Json};
 use axum_extra::extract::cookie::{Cookie, PrivateCookieJar, SameSite};
 use base64::Engine;
 use chrono::{Duration, Utc};
@@ -23,6 +23,52 @@ use crate::tenant::{public_url_for_slug, MaybeTenant, Tenant, TenantCtx};
 const SESSION_COOKIE: &str = "lb_session";
 const MAGIC_LINK_TTL_MINUTES: i64 = 15;
 const SESSION_TTL_DAYS: i64 = 30;
+
+/// Build the session cookie and add it to `jar`.
+///
+/// The cookie is **host-only** (no `domain` attribute), so each space's
+/// subdomain keeps its own session. That is what lets a person stay signed in
+/// to several spaces at once (e.g. `acme.lunabet.eu` and `nice.lunabet.eu`)
+/// with a different email per space: previously a single domain-wide cookie
+/// held one session, so logging into a second space silently signed you out of
+/// the first. We also clear any legacy domain-wide cookie left over from before
+/// this change, otherwise the browser would send two `lb_session` cookies.
+pub fn set_session_cookie(
+    jar: PrivateCookieJar,
+    cfg: &crate::config::Config,
+    session_id: Uuid,
+) -> PrivateCookieJar {
+    let jar = clear_legacy_domain_cookie(jar, cfg);
+    let cookie = Cookie::build((SESSION_COOKIE, session_id.to_string()))
+        .path("/")
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(SESSION_TTL_DAYS))
+        .build();
+    jar.add(cookie)
+}
+
+/// Remove the session cookie in both forms (host-only and the legacy
+/// domain-wide one), so signing out clears it whichever way it was set.
+pub fn clear_session_cookie(jar: PrivateCookieJar, cfg: &crate::config::Config) -> PrivateCookieJar {
+    let mut host_only = Cookie::from(SESSION_COOKIE);
+    host_only.set_path("/");
+    let jar = jar.remove(host_only);
+    clear_legacy_domain_cookie(jar, cfg)
+}
+
+fn clear_legacy_domain_cookie(
+    jar: PrivateCookieJar,
+    cfg: &crate::config::Config,
+) -> PrivateCookieJar {
+    let Some(domain) = cfg.cookie_domain() else {
+        return jar;
+    };
+    let mut legacy = Cookie::from(SESSION_COOKIE);
+    legacy.set_path("/");
+    legacy.set_domain(domain);
+    jar.remove(legacy)
+}
 
 #[derive(Template)]
 #[template(path = "login.html")]
@@ -395,15 +441,7 @@ pub async fn callback(
     .execute(&state.pool)
     .await?;
 
-    let mut builder = Cookie::build((SESSION_COOKIE, session_id.to_string()))
-        .path("/")
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .max_age(time::Duration::days(SESSION_TTL_DAYS));
-    if let Some(domain) = state.cfg.cookie_domain() {
-        builder = builder.domain(domain);
-    }
-    let jar = jar.add(builder.build());
+    let jar = set_session_cookie(jar, &state.cfg, session_id);
     Ok((jar, Redirect::to("/today")).into_response())
 }
 
@@ -419,7 +457,7 @@ pub async fn logout(
                 .await;
         }
     }
-    let jar = jar.remove(Cookie::from(SESSION_COOKIE));
+    let jar = clear_session_cookie(jar, &state.cfg);
     Ok((jar, Redirect::to("/")).into_response())
 }
 
@@ -448,6 +486,42 @@ pub async fn current_user(
     .fetch_optional(&state.pool)
     .await?;
     Ok(user)
+}
+
+#[derive(serde::Serialize)]
+struct WhoAmI {
+    slug: String,
+    name: String,
+    email: String,
+    /// Apex domain the spaces directory cookie should be scoped to (so the
+    /// switcher can be shared across every `*.{domain}` space). `None` in
+    /// single-host setups (e.g. local dev), where there is nothing to share.
+    cookie_domain: Option<String>,
+}
+
+/// Identity of the signed-in member for the current space, as JSON. Drives the
+/// client-side space switcher (`static/spaces.js`): it records each space the
+/// browser has signed into and lets the member jump between them. Returns 401
+/// when not signed in and 204 when the host isn't a space (e.g. the apex), so
+/// the script can quietly skip recording.
+pub async fn whoami(
+    State(state): State<AppState>,
+    MaybeTenant(maybe_tenant): MaybeTenant,
+    jar: PrivateCookieJar,
+) -> Response {
+    let Some(tenant) = maybe_tenant else {
+        return StatusCode::NO_CONTENT.into_response();
+    };
+    match current_user(&state, &tenant, &jar).await {
+        Ok(Some(u)) => Json(WhoAmI {
+            slug: tenant.slug.clone(),
+            name: tenant.name.clone(),
+            email: u.email,
+            cookie_domain: state.cfg.cookie_domain(),
+        })
+        .into_response(),
+        _ => StatusCode::UNAUTHORIZED.into_response(),
+    }
 }
 
 pub struct AuthUser(pub User);

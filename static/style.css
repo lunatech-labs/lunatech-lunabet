@@ -1747,3 +1747,37 @@ tr.me .player-avatar {
 .joker-btn:hover { background: var(--gold-light); }
 .joker-btn.active { background: var(--gold-light); color: var(--ink); }
 .joker-help { font-size: 0.78rem; color: var(--ink-soft); }
+
+/* Space switcher (top bar). Rendered by static/spaces.js from the lb_spaces
+   directory cookie. Lets a member see the current login and jump between the
+   spaces they belong to (each on its own subdomain, possibly a different
+   email). Hidden when the directory is empty. */
+.space-switcher { position: relative; display: inline-flex; }
+.space-dd { position: relative; }
+.space-dd > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    font-family: "Bebas Neue", sans-serif; letter-spacing: 0.03em;
+    padding: 0.2rem 0.6rem; border: 2px solid var(--ink); border-radius: 4px;
+    background: var(--paper-light); color: var(--ink); white-space: nowrap;
+}
+.space-dd > summary::-webkit-details-marker { display: none; }
+.space-dd[open] > summary { background: var(--gold-light); }
+.space-dd .ss-list {
+    position: absolute; right: 0; top: calc(100% + 0.3rem); z-index: 50;
+    min-width: 230px; margin: 0; padding: 0.3rem; list-style: none;
+    background: var(--paper-light); border: 2px solid var(--ink);
+    border-radius: 6px; box-shadow: var(--shadow);
+}
+.space-dd .ss-list li { margin: 0; }
+.space-dd .ss-list a,
+.space-dd .ss-list li.cur,
+.space-dd .ss-list li.disabled {
+    display: flex; flex-direction: column; gap: 0.05rem;
+    padding: 0.4rem 0.55rem; border-radius: 4px; border: none;
+    text-decoration: none; color: var(--ink);
+}
+.space-dd .ss-list a:hover { background: var(--gold-light); }
+.space-dd .ss-list li.cur { background: var(--gold-light); }
+.space-dd .ss-list li.disabled { opacity: 0.6; }
+.space-dd .ss-name { font-weight: 700; }
+.space-dd .ss-email { font-size: 0.78rem; color: var(--ink-soft); }

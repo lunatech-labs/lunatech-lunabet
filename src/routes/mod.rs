@@ -70,6 +70,7 @@ pub fn router() -> Router<AppState> {
             post(platform::send_today_matches),
         )
         .route("/logout", post(auth::logout))
+        .route("/whoami", get(auth::whoami))
         .route("/today", get(today::page))
         .route("/today/match/{id}", get(today::match_fragment))
         .route("/matches", get(matches::list))

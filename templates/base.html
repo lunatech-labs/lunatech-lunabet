@@ -50,6 +50,7 @@
     <script defer src="/static/easter-eggs.js"></script>
     <script defer src="/static/timezone-converter.js"></script>
     <script defer src="/static/countdown.js"></script>
+    <script defer src="/static/spaces.js"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -60,6 +61,7 @@
         </a>
         <nav>
             {% block nav %}{% endblock %}
+            <span id="space-switcher" class="space-switcher"></span>
             <span class="lang-switch">
                 <a href="/lang/fr" class="lang-link{% if loc.code() == "fr" %} active{% endif %}">FR</a>
                 <span class="lang-sep">|</span>
