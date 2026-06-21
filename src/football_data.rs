@@ -133,9 +133,13 @@ async fn sync_one_competition(
                 home_team_code = EXCLUDED.home_team_code,
                 away_team_code = EXCLUDED.away_team_code,
                 kickoff_at     = EXCLUDED.kickoff_at,
-                status         = EXCLUDED.status,
-                home_score     = EXCLUDED.home_score,
-                away_score     = EXCLUDED.away_score,
+                -- A locked match keeps its manually-set score and status: the
+                -- upstream feed is wrong for it (e.g. a disallowed goal the feed
+                -- never corrected), so we ignore the feed's outcome while still
+                -- refreshing every other field above.
+                status         = CASE WHEN matches.score_locked THEN matches.status     ELSE EXCLUDED.status     END,
+                home_score     = CASE WHEN matches.score_locked THEN matches.home_score ELSE EXCLUDED.home_score END,
+                away_score     = CASE WHEN matches.score_locked THEN matches.away_score ELSE EXCLUDED.away_score END,
                 updated_at     = NOW()
             "#,
         )
