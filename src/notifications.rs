@@ -366,6 +366,10 @@ struct ScoreEvent {
     home: i32,
     away: i32,
     is_final: bool,
+    /// The score dropped (total goals decreased), i.e. a goal was disallowed
+    /// (VAR) rather than scored. Used to label the push as a correction instead
+    /// of a goal. Ignored when `is_final` is set.
+    is_disallowed: bool,
 }
 
 /// A match row with both its current and last-pushed score/status, for live
@@ -445,6 +449,14 @@ pub async fn send_live_score_updates(state: &AppState) -> anyhow::Result<()> {
             && c.away_score == Some(0);
         let is_goal =
             scores_changed && c.home_score.is_some() && c.away_score.is_some() && !opening_nil;
+        // A disallowed goal (VAR): the score is corrected downward, so the total
+        // number of goals drops. Both prior and current totals are known here
+        // because `is_goal` already requires both current scores to be present
+        // and `opening_nil` excludes the NULL -> 0-0 kick-off. Without this, the
+        // 5-0 -> 4-0 correction would fire a misleading "Goal!" push.
+        let prev_total = c.last_pushed_home.unwrap_or(0) + c.last_pushed_away.unwrap_or(0);
+        let new_total = c.home_score.unwrap_or(0) + c.away_score.unwrap_or(0);
+        let is_disallowed = is_goal && new_total < prev_total;
 
         if had_prior && (is_goal || is_final) {
             to_push.push(ScoreEvent {
@@ -453,6 +465,7 @@ pub async fn send_live_score_updates(state: &AppState) -> anyhow::Result<()> {
                 home: c.home_score.unwrap_or(0),
                 away: c.away_score.unwrap_or(0),
                 is_final,
+                is_disallowed,
             });
         }
     }
@@ -514,11 +527,13 @@ async fn live_score_for_tenant(
         for (uid, lang) in &recipients {
             let loc = crate::i18n::Locale::from_code(lang).unwrap_or_default();
             let score = format!("{} {}-{} {}", ev.home_team, ev.home, ev.away, ev.away_team);
-            let title = match (loc, ev.is_final) {
-                (crate::i18n::Locale::Fr, true) => format!("🏁 Score final : {score}"),
-                (crate::i18n::Locale::En, true) => format!("🏁 Final score: {score}"),
-                (crate::i18n::Locale::Fr, false) => format!("⚽ But ! {score}"),
-                (crate::i18n::Locale::En, false) => format!("⚽ Goal! {score}"),
+            let title = match (loc, ev.is_final, ev.is_disallowed) {
+                (crate::i18n::Locale::Fr, true, _) => format!("🏁 Score final : {score}"),
+                (crate::i18n::Locale::En, true, _) => format!("🏁 Final score: {score}"),
+                (crate::i18n::Locale::Fr, false, true) => format!("🚫 But refusé : {score}"),
+                (crate::i18n::Locale::En, false, true) => format!("🚫 Goal disallowed: {score}"),
+                (crate::i18n::Locale::Fr, false, false) => format!("⚽ But ! {score}"),
+                (crate::i18n::Locale::En, false, false) => format!("⚽ Goal! {score}"),
             };
             let label = loc.f("Classement", "Standings");
             let body = format!("{label}: {standings}");
