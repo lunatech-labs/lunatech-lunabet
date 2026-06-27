@@ -224,7 +224,7 @@ async fn load_sections(
         let bet = bet_map.get(&m.id).copied();
         let view = MatchView {
             open: m.is_open_for_bets(),
-            finished: m.has_final_result(),
+            finished: m.is_concluded(),
             bet_home: bet.map(|(h, _, _, _)| h),
             bet_away: bet.map(|(_, a, _, _)| a),
             points: bet.and_then(|(_, _, p, _)| p),

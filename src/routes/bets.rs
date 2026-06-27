@@ -117,7 +117,7 @@ async fn render_match_card(
 
     let view = MatchView {
         open: m.is_open_for_bets(),
-        finished: m.has_final_result(),
+        finished: m.is_concluded(),
         bet_home: bet.map(|b| b.0),
         bet_away: bet.map(|b| b.1),
         points: bet.and_then(|b| b.2),
