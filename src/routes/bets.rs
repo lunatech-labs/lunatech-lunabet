@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::error::AppResult;
 use crate::i18n::Locale;
-use crate::models::Match;
+use crate::models::{self, Match};
 use crate::routes::auth::AuthUser;
 use crate::routes::matches::MatchView;
 use crate::state::AppState;
@@ -49,7 +49,7 @@ pub async fn place_or_update(
     let Some((kickoff, status)) = row else {
         return Ok((StatusCode::NOT_FOUND, loc.f("Match introuvable.", "Match not found.")).into_response());
     };
-    if kickoff <= Utc::now() || !(status == "SCHEDULED" || status == "TIMED") {
+    if !models::betting_open(kickoff, &status) {
         return Ok((StatusCode::FORBIDDEN, loc.f("Les paris sont fermés pour ce match.", "Bets are closed for this match.")).into_response());
     }
 
@@ -161,7 +161,7 @@ pub async fn toggle_joker(
     let Some((kickoff, status, stage)) = target else {
         return Ok((StatusCode::NOT_FOUND, loc.f("Match introuvable.", "Match not found.")).into_response());
     };
-    if kickoff <= Utc::now() || !(status == "SCHEDULED" || status == "TIMED") {
+    if !models::betting_open(kickoff, &status) {
         return Ok((
             StatusCode::FORBIDDEN,
             loc.f("Ce match est fermé.", "This match is closed."),

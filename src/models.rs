@@ -42,9 +42,30 @@ pub struct Match {
 /// (DIGEST_COMPLETION_GRACE_HOURS in notifications.rs).
 const MAX_MATCH_DURATION_HOURS: i64 = 4;
 
+/// Feed statuses that mean a match is under way or already decided. Anything
+/// outside this set (SCHEDULED, TIMED, POSTPONED, CANCELLED, or a value the
+/// feed adds later) is a pre-match state.
+pub fn has_kicked_off(status: &str) -> bool {
+    matches!(
+        status,
+        "IN_PLAY" | "PAUSED" | "EXTRA_TIME" | "PENALTY_SHOOTOUT" | "FINISHED" | "AWARDED" | "SUSPENDED"
+    )
+}
+
+/// Whether bets can still be placed on a match with this kickoff and status.
+/// Open until the match actually starts: the kickoff is in the future and the
+/// feed hasn't moved it into a live or finished state. Deliberately a blacklist
+/// of started statuses rather than a whitelist of pre-match ones — the feed
+/// sometimes reports an upcoming match with a status other than SCHEDULED/TIMED,
+/// and betting must stay open for those instead of the card freezing as "in
+/// progress" before kickoff.
+pub fn betting_open(kickoff_at: DateTime<Utc>, status: &str) -> bool {
+    kickoff_at > Utc::now() && !has_kicked_off(status)
+}
+
 impl Match {
     pub fn is_open_for_bets(&self) -> bool {
-        self.kickoff_at > Utc::now() && (self.status == "SCHEDULED" || self.status == "TIMED")
+        betting_open(self.kickoff_at, &self.status)
     }
     pub fn has_final_result(&self) -> bool {
         self.status == "FINISHED" && self.home_score.is_some() && self.away_score.is_some()
@@ -176,5 +197,36 @@ mod tests {
         assert!(m.is_open_for_bets());
         assert!(!m.is_long_over());
         assert!(!m.is_concluded());
+    }
+
+    #[test]
+    fn future_scheduled_match_is_open() {
+        let m = at(Utc::now() + Duration::hours(3), "SCHEDULED", None);
+        assert!(m.is_open_for_bets());
+    }
+
+    #[test]
+    fn future_match_with_unexpected_status_is_still_open() {
+        // The feed reports an upcoming match with something other than
+        // SCHEDULED/TIMED. Betting must stay open: kickoff is still ahead.
+        for status in ["POSTPONED", "CANCELLED", "SOMETHING_NEW", ""] {
+            let m = at(Utc::now() + Duration::hours(3), status, None);
+            assert!(m.is_open_for_bets(), "expected open for status {status:?}");
+            assert!(!m.is_concluded(), "expected not concluded for status {status:?}");
+        }
+    }
+
+    #[test]
+    fn started_match_is_not_open_even_before_listed_kickoff() {
+        // Contradictory feed data (status says live, kickoff still ahead): keep
+        // betting closed so nobody bets after play has started.
+        let m = at(Utc::now() + Duration::hours(1), "IN_PLAY", Some((0, 0)));
+        assert!(!m.is_open_for_bets());
+    }
+
+    #[test]
+    fn past_kickoff_is_never_open() {
+        let m = at(Utc::now() - Duration::minutes(5), "TIMED", None);
+        assert!(!m.is_open_for_bets());
     }
 }
