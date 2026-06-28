@@ -11,7 +11,7 @@
           hx-swap="outerHTML"
           class="bet-form">
         <div class="team home">
-            <span class="code">{% match v.m.home_team_code %}{% when Some with (c) %}{{ c }}{% when None %}---{% endmatch %}</span>
+            <span class="code">{{ v.m.home_code() }}</span>
             <span class="name">{{ v.m.home_team }}</span>
         </div>
         <input type="number" inputmode="numeric" name="home_score" min="0" max="30"
@@ -22,7 +22,7 @@
                value="{% match v.bet_away %}{% when Some with (n) %}{{ n }}{% when None %}{% endmatch %}"
                required {% if !v.open %}disabled{% endif %}>
         <div class="team away">
-            <span class="code">{% match v.m.away_team_code %}{% when Some with (c) %}{{ c }}{% when None %}---{% endmatch %}</span>
+            <span class="code">{{ v.m.away_code() }}</span>
             <span class="name">{{ v.m.away_team }}</span>
         </div>
         <div class="submit-row">

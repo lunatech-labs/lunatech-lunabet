@@ -63,6 +63,36 @@ pub fn betting_open(kickoff_at: DateTime<Utc>, status: &str) -> bool {
     kickoff_at > Utc::now() && !has_kicked_off(status)
 }
 
+/// Badge code for a team: the feed's 3-letter code when it gives a non-empty
+/// one, otherwise an abbreviation of the team name.
+fn team_code(tla: Option<&str>, name: &str) -> String {
+    if let Some(code) = tla {
+        let code = code.trim();
+        if !code.is_empty() {
+            return code.to_uppercase();
+        }
+    }
+    abbreviate(name)
+}
+
+/// Derive a short, badge-sized code from a team name when the feed gives none.
+/// Multi-word names use the initials of their significant words ("South Africa"
+/// -> "SA"); single words take their first three letters ("Canada" -> "CAN").
+fn abbreviate(name: &str) -> String {
+    const SKIP: &[&str] = &["and", "of", "the"];
+    let words: Vec<&str> = name
+        .split_whitespace()
+        .filter(|w| w.chars().any(|c| c.is_alphanumeric()))
+        .filter(|w| !SKIP.contains(&w.to_lowercase().as_str()))
+        .collect();
+    let code: String = match words.as_slice() {
+        [] => return "?".to_string(),
+        [single] => single.chars().take(3).collect(),
+        many => many.iter().filter_map(|w| w.chars().next()).take(3).collect(),
+    };
+    code.to_uppercase()
+}
+
 impl Match {
     pub fn is_open_for_bets(&self) -> bool {
         betting_open(self.kickoff_at, &self.status)
@@ -83,6 +113,18 @@ impl Match {
     /// game the feed left unfinalised from showing as "in progress" indefinitely.
     pub fn is_concluded(&self) -> bool {
         self.has_final_result() || self.is_long_over()
+    }
+
+    /// Short code shown on the home team's badge. Uses the feed's 3-letter code
+    /// when present, otherwise an abbreviation derived from the team name so the
+    /// badge never falls back to an empty "---" (the World Cup feed omits `tla`
+    /// for some teams).
+    pub fn home_code(&self) -> String {
+        team_code(self.home_team_code.as_deref(), &self.home_team)
+    }
+    /// Short code shown on the away team's badge. See [`Match::home_code`].
+    pub fn away_code(&self) -> String {
+        team_code(self.away_team_code.as_deref(), &self.away_team)
     }
 
     /// Localised display label for the match's tournament stage. Falls back
@@ -228,5 +270,40 @@ mod tests {
     fn past_kickoff_is_never_open() {
         let m = at(Utc::now() - Duration::minutes(5), "TIMED", None);
         assert!(!m.is_open_for_bets());
+    }
+
+    #[test]
+    fn team_code_prefers_the_feed_code() {
+        assert_eq!(team_code(Some("RSA"), "South Africa"), "RSA");
+        assert_eq!(team_code(Some("can"), "Canada"), "CAN");
+    }
+
+    #[test]
+    fn team_code_falls_back_to_an_abbreviation() {
+        // Missing or blank feed code: derive something rather than show "---".
+        assert_eq!(team_code(None, "Canada"), "CAN");
+        assert_eq!(team_code(Some(""), "Canada"), "CAN");
+        assert_eq!(team_code(Some("  "), "South Africa"), "SA");
+    }
+
+    #[test]
+    fn abbreviate_handles_words_and_connectors() {
+        assert_eq!(abbreviate("Canada"), "CAN");
+        assert_eq!(abbreviate("South Africa"), "SA");
+        assert_eq!(abbreviate("Bosnia and Herzegovina"), "BH");
+        assert_eq!(abbreviate("Trinidad and Tobago"), "TT");
+        assert_eq!(abbreviate("?"), "?");
+        assert_eq!(abbreviate(""), "?");
+    }
+
+    #[test]
+    fn match_code_helpers_use_team_names_when_codes_missing() {
+        let mut m = at(Utc::now() + Duration::hours(2), "TIMED", None);
+        m.home_team = "Canada".into();
+        m.away_team = "South Africa".into();
+        m.home_team_code = None;
+        m.away_team_code = None;
+        assert_eq!(m.home_code(), "CAN");
+        assert_eq!(m.away_code(), "SA");
     }
 }

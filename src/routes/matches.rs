@@ -292,17 +292,16 @@ fn build_section(stage_key: &str, mut views: Vec<MatchView>, loc: Locale) -> Sta
 }
 
 fn build_group_overview(views: &[MatchView]) -> Vec<GroupOverview> {
-    // BTreeMap so groups come out sorted alphabetically by their name.
+    // BTreeMap so groups come out sorted alphabetically by their name. The inner
+    // map is keyed by team name (deduping each team within a group) and holds
+    // its badge code, derived from the name when the feed gives no `tla` so a
+    // team without a code is still listed rather than silently dropped.
     let mut by_group: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     for v in views {
         let Some(g) = &v.m.group_name else { continue };
         let entry = by_group.entry(g.clone()).or_default();
-        if let Some(code) = &v.m.home_team_code {
-            entry.entry(code.clone()).or_insert_with(|| v.m.home_team.clone());
-        }
-        if let Some(code) = &v.m.away_team_code {
-            entry.entry(code.clone()).or_insert_with(|| v.m.away_team.clone());
-        }
+        entry.entry(v.m.home_team.clone()).or_insert_with(|| v.m.home_code());
+        entry.entry(v.m.away_team.clone()).or_insert_with(|| v.m.away_code());
     }
     by_group
         .into_iter()
@@ -310,7 +309,7 @@ fn build_group_overview(views: &[MatchView]) -> Vec<GroupOverview> {
             name,
             teams: teams
                 .into_iter()
-                .map(|(code, name)| TeamRef { code, name })
+                .map(|(name, code)| TeamRef { code, name })
                 .collect(),
         })
         .collect()
