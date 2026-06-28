@@ -56,7 +56,10 @@ pub async fn detect_sources(
           AND su.tenant_id <> $2
           AND t.football_competition = $3
           AND m.kickoff_at > NOW()
-          AND m.status IN ('SCHEDULED', 'TIMED')
+          -- Open for bets: not yet started. Mirrors models::has_kicked_off so a
+          -- pre-match status other than SCHEDULED/TIMED is still importable.
+          AND m.status NOT IN
+              ('IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT', 'FINISHED', 'AWARDED', 'SUSPENDED')
           AND NOT EXISTS (
                 SELECT 1 FROM bets tb
                 WHERE tb.user_id = $4 AND tb.tenant_id = $2 AND tb.match_id = sb.match_id
@@ -104,7 +107,10 @@ pub async fn import(
           AND su.email = $5
           AND st.football_competition = $6
           AND m.kickoff_at > NOW()
-          AND m.status IN ('SCHEDULED', 'TIMED')
+          -- Open for bets: not yet started. Mirrors models::has_kicked_off so a
+          -- pre-match status other than SCHEDULED/TIMED is still importable.
+          AND m.status NOT IN
+              ('IN_PLAY', 'PAUSED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT', 'FINISHED', 'AWARDED', 'SUSPENDED')
         ON CONFLICT (user_id, match_id) DO NOTHING
         "#,
     )
