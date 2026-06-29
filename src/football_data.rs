@@ -42,14 +42,48 @@ struct ApiTeam {
 
 #[derive(Debug, Deserialize)]
 struct ApiScore {
+    duration: Option<String>,
     #[serde(rename = "fullTime")]
     full_time: ApiScorePart,
+    #[serde(rename = "regularTime")]
+    regular_time: Option<ApiScorePart>,
+    #[serde(rename = "extraTime")]
+    extra_time: Option<ApiScorePart>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ApiScorePart {
     home: Option<i32>,
     away: Option<i32>,
+}
+
+impl ApiScore {
+    /// The score that bets are settled against: the result after 120 minutes,
+    /// with any penalty shootout ignored. For a PENALTY_SHOOTOUT match the
+    /// feed folds the shootout into `fullTime` (e.g. a 1-1 draw won 5-3 on
+    /// pens is reported as 6-4), so we reconstruct the after-extra-time score
+    /// from regularTime + extraTime instead. Every other duration already
+    /// reports the 120' (or 90') result in fullTime.
+    fn settled_score(&self) -> (Option<i32>, Option<i32>) {
+        if self.duration.as_deref() == Some("PENALTY_SHOOTOUT") {
+            let reg = self.regular_time.as_ref();
+            let ext = self.extra_time.as_ref();
+            let home = sum_parts(reg.and_then(|p| p.home), ext.and_then(|p| p.home));
+            let away = sum_parts(reg.and_then(|p| p.away), ext.and_then(|p| p.away));
+            (home, away)
+        } else {
+            (self.full_time.home, self.full_time.away)
+        }
+    }
+}
+
+/// Add two optional score parts, treating a missing side as 0 when the other
+/// is present; None only when both are absent.
+fn sum_parts(a: Option<i32>, b: Option<i32>) -> Option<i32> {
+    match (a, b) {
+        (None, None) => None,
+        (a, b) => Some(a.unwrap_or(0) + b.unwrap_or(0)),
+    }
 }
 
 pub async fn sync_fixtures(state: &AppState) -> anyhow::Result<()> {
@@ -111,7 +145,7 @@ async fn sync_one_competition(
         let (home_score, away_score) = m
             .score
             .as_ref()
-            .map(|s| (s.full_time.home, s.full_time.away))
+            .map(|s| s.settled_score())
             .unwrap_or((None, None));
         let home_team = m.home_team.name.clone().unwrap_or_else(|| "?".into());
         let away_team = m.away_team.name.clone().unwrap_or_else(|| "?".into());
@@ -163,4 +197,67 @@ async fn sync_one_competition(
 
     tracing::info!("synced {count} matches from football-data.org ({competition})");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn settled(score_json: &str) -> (Option<i32>, Option<i32>) {
+        serde_json::from_str::<ApiScore>(score_json).unwrap().settled_score()
+    }
+
+    // Real football-data.org v4 payloads (Euro 2024, free tier). For a
+    // PENALTY_SHOOTOUT match the shootout is folded into fullTime, so bets must
+    // be settled on regularTime + extraTime instead.
+
+    // England 1-1 Switzerland a.e.t., won 5-3 on pens. fullTime reads 6-4.
+    #[test]
+    fn shootout_after_a_draw_settles_at_the_120_minute_draw() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 6, "away": 4 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 5, "away": 3 }
+        }"#;
+        assert_eq!(settled(json), (Some(1), Some(1)));
+    }
+
+    // Portugal 0-0 Slovenia a.e.t., won 3-0 on pens. fullTime reads 3-0, which
+    // would wrongly grade a correct draw guess as a home win.
+    #[test]
+    fn goalless_shootout_settles_at_nil_nil_not_the_penalty_count() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 3, "away": 0 },
+            "regularTime": { "home": 0, "away": 0 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 3, "away": 0 }
+        }"#;
+        assert_eq!(settled(json), (Some(0), Some(0)));
+    }
+
+    // A match decided in extra time (no shootout) already reports the 120'
+    // result in fullTime, so it is used as-is.
+    #[test]
+    fn extra_time_winner_uses_full_time() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "EXTRA_TIME",
+            "fullTime": { "home": 2, "away": 1 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 1, "away": 0 }
+        }"#;
+        assert_eq!(settled(json), (Some(2), Some(1)));
+    }
+
+    // A normal 90' match has no regularTime/extraTime breakdown; fullTime wins.
+    #[test]
+    fn regular_match_uses_full_time() {
+        let json = r#"{
+            "winner": "AWAY_TEAM", "duration": "REGULAR",
+            "fullTime": { "home": 0, "away": 2 }
+        }"#;
+        assert_eq!(settled(json), (Some(0), Some(2)));
+    }
 }
