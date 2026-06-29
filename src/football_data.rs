@@ -44,6 +44,10 @@ struct ApiTeam {
 struct ApiScore {
     #[serde(rename = "fullTime")]
     full_time: ApiScorePart,
+    // Goals scored in the penalty shootout, present only when the match was
+    // decided on penalties. `fullTime` already includes extra-time goals, so
+    // this is the only part of the complete game it leaves out.
+    penalties: Option<ApiScorePart>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,6 +117,12 @@ async fn sync_one_competition(
             .as_ref()
             .map(|s| (s.full_time.home, s.full_time.away))
             .unwrap_or((None, None));
+        let (pens_home, pens_away) = m
+            .score
+            .as_ref()
+            .and_then(|s| s.penalties.as_ref())
+            .map(|p| (p.home, p.away))
+            .unwrap_or((None, None));
         let home_team = m.home_team.name.clone().unwrap_or_else(|| "?".into());
         let away_team = m.away_team.name.clone().unwrap_or_else(|| "?".into());
 
@@ -121,9 +131,9 @@ async fn sync_one_competition(
             INSERT INTO matches (
                 id, competition, stage, group_name,
                 home_team, away_team, home_team_code, away_team_code,
-                kickoff_at, status, home_score, away_score, updated_at
+                kickoff_at, status, home_score, away_score, pens_home, pens_away, updated_at
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, NOW())
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, NOW())
             ON CONFLICT (id) DO UPDATE SET
                 competition    = EXCLUDED.competition,
                 stage          = EXCLUDED.stage,
@@ -140,6 +150,8 @@ async fn sync_one_competition(
                 status         = CASE WHEN matches.score_locked THEN matches.status     ELSE EXCLUDED.status     END,
                 home_score     = CASE WHEN matches.score_locked THEN matches.home_score ELSE EXCLUDED.home_score END,
                 away_score     = CASE WHEN matches.score_locked THEN matches.away_score ELSE EXCLUDED.away_score END,
+                pens_home      = CASE WHEN matches.score_locked THEN matches.pens_home  ELSE EXCLUDED.pens_home  END,
+                pens_away      = CASE WHEN matches.score_locked THEN matches.pens_away  ELSE EXCLUDED.pens_away  END,
                 updated_at     = NOW()
             "#,
         )
@@ -155,6 +167,8 @@ async fn sync_one_competition(
         .bind(&m.status)
         .bind(home_score)
         .bind(away_score)
+        .bind(pens_home)
+        .bind(pens_away)
         .execute(&mut *tx)
         .await?;
         count += 1;
