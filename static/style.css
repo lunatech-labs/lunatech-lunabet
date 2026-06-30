@@ -651,8 +651,10 @@ canvas.ball3d.ball-hero {
    not pick up the green/red result tint applied to .final-score. The span
    qualifier keeps it ahead of those result-colour rules on specificity. */
 .match.finished .final-score span.pens-score {
-    font-size: 1rem;
+    font-size: 0.8rem;
+    font-style: italic;
     color: var(--ink-soft);
+    opacity: 0.7;
     align-self: center;
 }
 .match.finished .teams-row {
