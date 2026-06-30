@@ -97,7 +97,7 @@ async fn render_match_card(
         r#"
         SELECT id, competition, stage, group_name,
                home_team, away_team, home_team_code, away_team_code,
-               kickoff_at, status, home_score, away_score
+               kickoff_at, status, home_score, away_score, pens_home, pens_away
         FROM matches WHERE id = $1
         "#,
     )

@@ -32,6 +32,10 @@ pub struct Match {
     pub status: String,
     pub home_score: Option<i32>,
     pub away_score: Option<i32>,
+    /// Penalty shootout score, set only for a knockout decided on penalties.
+    /// Shown next to the final score; it does not affect points.
+    pub pens_home: Option<i32>,
+    pub pens_away: Option<i32>,
 }
 
 /// A match cannot still be in play this long after kickoff. Past this point we
@@ -99,6 +103,15 @@ impl Match {
     }
     pub fn has_final_result(&self) -> bool {
         self.status == "FINISHED" && self.home_score.is_some() && self.away_score.is_some()
+    }
+
+    /// The penalty shootout score as "home-away" (e.g. "4-2") for display next
+    /// to the final score, or None when the match was not decided on penalties.
+    pub fn penalty_score(&self) -> Option<String> {
+        match (self.pens_home, self.pens_away) {
+            (Some(h), Some(a)) => Some(format!("{h}-{a}")),
+            _ => None,
+        }
     }
 
     /// Kicked off so long ago that it cannot still be in play. Used as a safety
@@ -196,6 +209,8 @@ mod tests {
             status: status.into(),
             home_score: score.map(|s| s.0),
             away_score: score.map(|s| s.1),
+            pens_home: None,
+            pens_away: None,
         }
     }
 
@@ -205,6 +220,18 @@ mod tests {
         assert!(m.has_final_result());
         assert!(m.is_concluded());
         assert!(!m.is_open_for_bets());
+    }
+
+    #[test]
+    fn penalty_score_renders_only_when_present() {
+        let mut m = at(Utc::now() - Duration::hours(2), "FINISHED", Some((1, 1)));
+        assert_eq!(m.penalty_score(), None);
+        m.pens_home = Some(4);
+        m.pens_away = Some(2);
+        assert_eq!(m.penalty_score().as_deref(), Some("4-2"));
+        // A half-populated shootout (shouldn't happen) renders nothing.
+        m.pens_away = None;
+        assert_eq!(m.penalty_score(), None);
     }
 
     #[test]

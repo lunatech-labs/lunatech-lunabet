@@ -20,6 +20,7 @@
         <span>{% match v.m.home_score %}{% when Some with (n) %}{{ n }}{% when None %}-{% endmatch %}</span>
         <span class="sep">-</span>
         <span>{% match v.m.away_score %}{% when Some with (n) %}{{ n }}{% when None %}-{% endmatch %}</span>
+        {% match v.m.penalty_score() %}{% when Some with (p) %}<span class="pens-score">{{ loc.f("t.a.b.", "pens") }} {{ p }}</span>{% when None %}{% endmatch %}
     </div>
     {% include "_bet_row.html" %}
 </article>
