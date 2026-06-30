@@ -5,8 +5,11 @@ use axum::Router;
 use axum_extra::extract::cookie::Key;
 use chrono::Timelike;
 use chrono_tz::Europe::Amsterdam;
+use axum::http::{header, HeaderValue};
 use sqlx::postgres::PgPoolOptions;
+use tower::ServiceBuilder;
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
 mod achievements;
@@ -414,7 +417,20 @@ async fn main() -> anyhow::Result<()> {
             state.clone(),
             middleware::resolve_tenant,
         ))
-        .nest_service("/static", ServeDir::new("static"))
+        // `no-cache` makes the browser revalidate bundled assets (style.css, JS,
+        // SVGs) on every load instead of trusting a heuristic freshness window.
+        // ServeDir answers conditional requests with a cheap 304 when unchanged,
+        // but a CSS/JS change shipped in a deploy is picked up immediately rather
+        // than the browser serving a stale cached copy.
+        .nest_service(
+            "/static",
+            ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::overriding(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("no-cache"),
+                ))
+                .service(ServeDir::new("static")),
+        )
         .nest_service("/uploads", ServeDir::new(&cfg.uploads_dir))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
