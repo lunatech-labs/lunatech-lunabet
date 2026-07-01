@@ -1,6 +1,6 @@
 # Feature Spec: Penalty-shootout scoring end-to-end regression tests
 
-> Status: PLANNED
+> Status: DONE
 > Spec folder: specs/001-penalty-shootout-e2e-tests/
 
 ## 1. Mission / Why
@@ -77,30 +77,30 @@ merely a restatement of today's output.
 
 ## 5. Acceptance Criteria (how you'll verify it)
 
-- [ ] AC1 (shootout after a draw): Given the `fullTime` 6-4 / `regularTime` 1-1
+- [x] AC1 (shootout after a draw): Given the `fullTime` 6-4 / `regularTime` 1-1
   / `extraTime` 0-0 PENALTY_SHOOTOUT payload decoded through `ApiScore`, when its
   `settled_score()` result is passed into `compute_points()` with a bet of 1-1,
   then the user receives **3** points; with a bet of 2-2, **1** point; with a bet
   of 2-1, **0** points.
-- [ ] AC2 (goalless shootout): Given the `fullTime` 3-0 / `regularTime` 0-0 /
+- [x] AC2 (goalless shootout): Given the `fullTime` 3-0 / `regularTime` 0-0 /
   `extraTime` 0-0 PENALTY_SHOOTOUT payload, when settled and scored against a 0-0
   bet, then the user receives **3** points; against a 1-0 bet, **0** points
   (proving the 3-0 penalty count was not used as the score).
-- [ ] AC3 (red-capable guard): At least one assertion demonstrably fails if
+- [x] AC3 (red-capable guard): At least one assertion demonstrably fails if
   `settled_score` returned `fullTime` for a PENALTY_SHOOTOUT payload — e.g. for
   the goalless case, a 0-0 bet scoring 3 would drop to 0 (since `fullTime` 3-0 ≠
   0-0), and a 3-0 bet scoring 0 would jump to 3. The test asserts the settled-on
   values such that the folded-`fullTime` behavior produces a different, failing
   result.
-- [ ] AC4 (non-shootout paths unaffected): Given an EXTRA_TIME payload
+- [x] AC4 (non-shootout paths unaffected): Given an EXTRA_TIME payload
   (`fullTime` 2-1, decided in ET) and a REGULAR payload (`fullTime` 0-2), when
   settled and scored, the points reflect the `fullTime` score (e.g. exact-score
   bets earn 3), proving non-shootout matches still route through `fullTime`.
-- [ ] AC5 (real decode): All payloads are decoded from JSON strings via
+- [x] AC5 (real decode): All payloads are decoded from JSON strings via
   `serde_json::from_str::<ApiScore>` (or the existing test helper), not
   constructed as Rust struct literals; expected point totals are independent
   literals.
-- [ ] AC6 (no regression): `cargo test --bin lunatech-betting` passes with the
+- [x] AC6 (no regression): `cargo test --bin lunatech-betting` passes with the
   new tests added and no existing test modified or broken.
 
 ## 6. Task Breakdown
@@ -130,7 +130,7 @@ merely a restatement of today's output.
   `full_time`, observing red, then reverting.
   `verifies: AC2, AC3, AC5` — `depends_on: Task 1`
 
-- [ ] **Task 3 — Non-shootout paths route through fullTime.** Using the
+- [x] **Task 3 — Non-shootout paths route through fullTime.** Using the
   committed EXTRA_TIME payload (`fullTime` 2-1, settles 2-1) assert a 2-1 bet
   scores 3; using the committed REGULAR payload (`fullTime` 0-2, settles 0-2)
   assert a 0-2 bet scores 3 and an outcome-only bet (0-3) scores 1, proving the

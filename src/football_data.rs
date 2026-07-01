@@ -290,6 +290,33 @@ mod tests {
         assert_eq!(score_bet(json, 3, 0), 0);
     }
 
+    // End-to-end: an EXTRA_TIME match (no shootout) settles on fullTime 2-1, so
+    // a user betting the exact 2-1 is paid the full 3 points. Proves the
+    // shootout special-casing did not disturb the ordinary extra-time path.
+    #[test]
+    fn extra_time_winner_scores_the_full_time_score() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "EXTRA_TIME",
+            "fullTime": { "home": 2, "away": 1 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 1, "away": 0 }
+        }"#;
+        assert_eq!(score_bet(json, 2, 1), 3);
+    }
+
+    // End-to-end: a REGULAR 90' match settles on fullTime 0-2. The exact 0-2 bet
+    // scores 3; an outcome-only bet (0-3, right away winner, wrong score) scores
+    // 1, proving the non-shootout path still routes through fullTime.
+    #[test]
+    fn regular_match_scores_the_full_time_score() {
+        let json = r#"{
+            "winner": "AWAY_TEAM", "duration": "REGULAR",
+            "fullTime": { "home": 0, "away": 2 }
+        }"#;
+        assert_eq!(score_bet(json, 0, 2), 3);
+        assert_eq!(score_bet(json, 0, 3), 1);
+    }
+
     // A match decided in extra time (no shootout) already reports the 120'
     // result in fullTime, so it is used as-is.
     #[test]

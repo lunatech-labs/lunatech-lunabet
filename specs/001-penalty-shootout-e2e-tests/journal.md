@@ -28,3 +28,14 @@ Append-only record of decisions, drift, and critic verdicts.
   `settled_score` to return `fullTime`, test panicked (`left: 0, right: 3` at
   football_data.rs:288), then reverted cleanly — 43 passed, diff shows only the
   additive test. AC2, AC3, AC5 satisfied.
+- **T3 — critic PASS.** `extra_time_winner_scores_the_full_time_score` and
+  `regular_match_scores_the_full_time_score` added (reuse `score_bet`). Critic
+  ran full suite: 45 passed, 0 failed; pre-existing settled-only tests untouched;
+  diff is 27 additive test lines only, `scoring.rs`/`main.rs` unchanged. AC4, AC5,
+  AC6 satisfied.
+
+## Complete
+- All 3 tasks PASS, all 6 ACs met. Status → DONE. Suite: 45 passing.
+- Residual gap carried forward (spec §7): no parity guard between `compute_points`
+  and `recompute_all`'s SQL payout (base × joker multiplier). Recommended
+  follow-up spec once a Postgres test harness exists.
