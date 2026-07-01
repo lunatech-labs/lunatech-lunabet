@@ -646,6 +646,17 @@ canvas.ball3d.ball-hero {
     margin: 0.5rem 0;
 }
 .match.finished .final-score .sep { color: var(--red); font-size: 1.8rem; }
+/* Penalty shootout result shown next to the final score (e.g. "t.a.b. 4-2").
+   Small and muted so it reads as an annotation, and its own colour so it does
+   not pick up the green/red result tint applied to .final-score. The span
+   qualifier keeps it ahead of those result-colour rules on specificity. */
+.match.finished .final-score span.pens-score {
+    font-size: 1.2rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    opacity: 0.7;
+    align-self: center;
+}
 .match.finished .teams-row {
     display: flex;
     justify-content: space-between;

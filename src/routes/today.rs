@@ -93,7 +93,7 @@ pub async fn page(
         r#"
         SELECT id, competition, stage, group_name,
                home_team, away_team, home_team_code, away_team_code,
-               kickoff_at, status, home_score, away_score
+               kickoff_at, status, home_score, away_score, pens_home, pens_away
         FROM matches
         WHERE kickoff_at >= $1 AND kickoff_at < $2
         ORDER BY kickoff_at ASC
@@ -233,7 +233,7 @@ pub async fn match_fragment(
         r#"
         SELECT id, competition, stage, group_name,
                home_team, away_team, home_team_code, away_team_code,
-               kickoff_at, status, home_score, away_score
+               kickoff_at, status, home_score, away_score, pens_home, pens_away
         FROM matches
         WHERE id = $1
         "#,
