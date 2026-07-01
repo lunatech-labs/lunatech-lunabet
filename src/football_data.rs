@@ -270,6 +270,26 @@ mod tests {
         assert_eq!(settled(json), (Some(0), Some(0)));
     }
 
+    // End-to-end: the Portugal 0-0 Slovenia goalless shootout payload (settles
+    // 0-0) scored against a user's bet. The 0-0-scores-3 and 3-0-scores-0 pair
+    // is the red-capable guard: if settled_score regressed to returning fullTime
+    // (3-0), those two assertions would invert (0-0 bet drops to 0, 3-0 bet
+    // jumps to 3) and the test would fail. The 1-0 bet proves the folded 3-0
+    // penalty count was not used as the score.
+    #[test]
+    fn goalless_shootout_scores_the_nil_nil_not_the_penalty_count() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 3, "away": 0 },
+            "regularTime": { "home": 0, "away": 0 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 3, "away": 0 }
+        }"#;
+        assert_eq!(score_bet(json, 0, 0), 3);
+        assert_eq!(score_bet(json, 1, 0), 0);
+        assert_eq!(score_bet(json, 3, 0), 0);
+    }
+
     // A match decided in extra time (no shootout) already reports the 120'
     // result in fullTime, so it is used as-is.
     #[test]

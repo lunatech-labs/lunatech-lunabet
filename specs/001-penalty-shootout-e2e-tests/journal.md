@@ -23,3 +23,8 @@ Append-only record of decisions, drift, and critic verdicts.
   added to `football_data.rs` test module. Critic verified via `git diff HEAD`
   (32 additive lines, only the test module; `scoring.rs`/`main.rs` untouched, no
   new `pub` fn) and own run: 42 passed, 0 failed. AC1, AC5 satisfied.
+- **T2 — critic PASS.** `goalless_shootout_scores_the_nil_nil_not_the_penalty_count`
+  added (reuses `score_bet`). Red-capable guard proven empirically: critic flipped
+  `settled_score` to return `fullTime`, test panicked (`left: 0, right: 3` at
+  football_data.rs:288), then reverted cleanly — 43 passed, diff shows only the
+  additive test. AC2, AC3, AC5 satisfied.

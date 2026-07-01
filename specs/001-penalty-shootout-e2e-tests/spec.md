@@ -121,7 +121,7 @@ merely a restatement of today's output.
   helper the later tasks reuse.
   `verifies: AC1, AC5` — `depends_on: none`
 
-- [ ] **Task 2 — Goalless-shootout case with red-capable guard.** Using the
+- [x] **Task 2 — Goalless-shootout case with red-capable guard.** Using the
   committed Portugal 0-0 Slovenia PENALTY_SHOOTOUT payload (`fullTime` 3-0,
   settles 0-0), assert a 0-0 bet scores 3, a 1-0 bet scores 0, and a 3-0 bet
   scores 0. The 0-0-scores-3 and 3-0-scores-0 pair is the red-capable guard: if
