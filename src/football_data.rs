@@ -207,6 +207,20 @@ mod tests {
         serde_json::from_str::<ApiScore>(score_json).unwrap().settled_score()
     }
 
+    // Runs the real end-to-end chain a user's points flow through: serde decode
+    // into ApiScore, the private settled_score() reduction to the 120-minute
+    // score, then the public compute_points() with the user's bet. Nothing is
+    // stubbed.
+    fn score_bet(json: &str, bet_home: i32, bet_away: i32) -> i32 {
+        let (actual_home, actual_away) = settled(json);
+        crate::scoring::compute_points(
+            bet_home,
+            bet_away,
+            actual_home.unwrap(),
+            actual_away.unwrap(),
+        )
+    }
+
     // Real football-data.org v4 payloads (Euro 2024, free tier). For a
     // PENALTY_SHOOTOUT match the shootout is folded into fullTime, so bets must
     // be settled on regularTime + extraTime instead.
@@ -222,6 +236,24 @@ mod tests {
             "penalties": { "home": 5, "away": 3 }
         }"#;
         assert_eq!(settled(json), (Some(1), Some(1)));
+    }
+
+    // End-to-end: the England 1-1 Switzerland shootout payload (settles 1-1)
+    // scored against a user's bet. A user betting the 120-minute draw is paid
+    // for the exact score, not left unpaid because fullTime folded in the 6-4
+    // penalty count.
+    #[test]
+    fn shootout_after_a_draw_scores_the_120_minute_draw() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 6, "away": 4 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 5, "away": 3 }
+        }"#;
+        assert_eq!(score_bet(json, 1, 1), 3);
+        assert_eq!(score_bet(json, 2, 2), 1);
+        assert_eq!(score_bet(json, 2, 1), 0);
     }
 
     // Portugal 0-0 Slovenia a.e.t., won 3-0 on pens. fullTime reads 3-0, which

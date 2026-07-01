@@ -17,3 +17,9 @@ Append-only record of decisions, drift, and critic verdicts.
 - Recorded deferred follow-up: no parity guard between `compute_points` and
   `recompute_all`'s SQL (true payout = base × joker multiplier). Critic to note,
   not fail on, this residual seam gap.
+
+## Phase 3 — Implement
+- **T1 — critic PASS.** `score_bet` helper + `shootout_after_a_draw_scores_the_120_minute_draw`
+  added to `football_data.rs` test module. Critic verified via `git diff HEAD`
+  (32 additive lines, only the test module; `scoring.rs`/`main.rs` untouched, no
+  new `pub` fn) and own run: 42 passed, 0 failed. AC1, AC5 satisfied.

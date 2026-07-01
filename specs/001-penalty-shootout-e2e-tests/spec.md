@@ -110,7 +110,7 @@ merely a restatement of today's output.
 > across the module boundary. Zero production surface added. All tasks touch
 > only `src/football_data.rs` test module; no production code changes.
 
-- [ ] **Task 1 — Composed payload-to-points helper + shootout-after-a-draw
+- [x] **Task 1 — Composed payload-to-points helper + shootout-after-a-draw
   case.** Add a test-only helper
   `score_bet(json, bet_home, bet_away) -> i32` that runs the real chain
   (existing `settled` decode → private `settled_score` → public
