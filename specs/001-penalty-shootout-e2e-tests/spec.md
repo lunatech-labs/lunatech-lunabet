@@ -1,6 +1,6 @@
 # Feature Spec: Penalty-shootout scoring end-to-end regression tests
 
-> Status: SPECIFIED
+> Status: PLANNED
 > Spec folder: specs/001-penalty-shootout-e2e-tests/
 
 ## 1. Mission / Why
@@ -33,7 +33,7 @@ merely a restatement of today's output.
 - End-to-end tests driving inline JSON payloads through `ApiScore` decode →
   `settled_score()` → `compute_points()`, asserting the points awarded.
 - Use the documented real example values:
-  - Penalty shootout after a draw: `fullTime` 7-6, `regularTime` 1-1,
+  - Penalty shootout after a draw: `fullTime` 6-4, `regularTime` 1-1,
     `extraTime` 0-0 → settles 1-1.
   - Goalless shootout: `fullTime` 3-0, `regularTime` 0-0, `extraTime` 0-0 →
     settles 0-0.
@@ -77,7 +77,7 @@ merely a restatement of today's output.
 
 ## 5. Acceptance Criteria (how you'll verify it)
 
-- [ ] AC1 (shootout after a draw): Given the `fullTime` 7-6 / `regularTime` 1-1
+- [ ] AC1 (shootout after a draw): Given the `fullTime` 6-4 / `regularTime` 1-1
   / `extraTime` 0-0 PENALTY_SHOOTOUT payload decoded through `ApiScore`, when its
   `settled_score()` result is passed into `compute_points()` with a bet of 1-1,
   then the user receives **3** points; with a bet of 2-2, **1** point; with a bet
@@ -105,7 +105,39 @@ merely a restatement of today's output.
 
 ## 6. Task Breakdown
 
-<!-- Filled in by sdd-planner, approved by the user at Gate 2. -->
+> Seam decision (see plan.md): all tests live inside `football_data.rs`'s
+> existing `#[cfg(test)] mod tests`, calling `crate::scoring::compute_points`
+> across the module boundary. Zero production surface added. All tasks touch
+> only `src/football_data.rs` test module; no production code changes.
+
+- [ ] **Task 1 — Composed payload-to-points helper + shootout-after-a-draw
+  case.** Add a test-only helper
+  `score_bet(json, bet_home, bet_away) -> i32` that runs the real chain
+  (existing `settled` decode → private `settled_score` → public
+  `crate::scoring::compute_points`, unwrapping the settled options). Using the
+  committed England 1-1 Switzerland PENALTY_SHOOTOUT payload (`fullTime` 6-4,
+  `regularTime` 1-1, `extraTime` 0-0, settles 1-1), assert a 1-1 bet scores 3,
+  a 2-2 bet scores 1, a 2-1 bet scores 0, all as bare literals. Establishes the
+  helper the later tasks reuse.
+  `verifies: AC1, AC5` — `depends_on: none`
+
+- [ ] **Task 2 — Goalless-shootout case with red-capable guard.** Using the
+  committed Portugal 0-0 Slovenia PENALTY_SHOOTOUT payload (`fullTime` 3-0,
+  settles 0-0), assert a 0-0 bet scores 3, a 1-0 bet scores 0, and a 3-0 bet
+  scores 0. The 0-0-scores-3 and 3-0-scores-0 pair is the red-capable guard: if
+  `settled_score` regressed to returning `fullTime` (3-0) these invert and the
+  test fails. Critic verifies by temporarily flipping `settled_score` to return
+  `full_time`, observing red, then reverting.
+  `verifies: AC2, AC3, AC5` — `depends_on: Task 1`
+
+- [ ] **Task 3 — Non-shootout paths route through fullTime.** Using the
+  committed EXTRA_TIME payload (`fullTime` 2-1, settles 2-1) assert a 2-1 bet
+  scores 3; using the committed REGULAR payload (`fullTime` 0-2, settles 0-2)
+  assert a 0-2 bet scores 3 and an outcome-only bet (0-3) scores 1, proving the
+  non-shootout path still uses `fullTime`. Then run
+  `cargo test --bin lunatech-betting` (source `~/.cargo/env` first) and confirm
+  all tests pass with no existing test modified or broken.
+  `verifies: AC4, AC5, AC6` — `depends_on: Task 1`
 
 ## 7. Open Questions
 
