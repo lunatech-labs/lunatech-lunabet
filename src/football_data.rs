@@ -217,6 +217,21 @@ async fn sync_one_competition(
 mod tests {
     use super::*;
 
+    // Two helpers, two seams:
+    //   settled(json)       -> the settled 120-minute SCORE (ingestion seam:
+    //                          serde decode -> ApiScore::settled_score).
+    //   score_bet(json, ..) -> the POINTS a user receives (feeds the settled
+    //                          score into scoring::compute_points -- the
+    //                          user-facing seam).
+    //
+    // Each shootout payload therefore has two matching tests:
+    //   *_settles_* asserts the SCORE, pinning the decode seam on its own, so a
+    //              failure localises to decoding rather than scoring.
+    //   *_scores_*  asserts the POINTS, pinning the composed user-facing outcome.
+    //              These are the red-capable guard: a 0-0 bet must score 3 and a
+    //              3-0 bet must score 0, which invert if settled_score ever
+    //              regresses to returning fullTime.
+
     fn settled(score_json: &str) -> (Option<i32>, Option<i32>) {
         serde_json::from_str::<ApiScore>(score_json).unwrap().settled_score()
     }
