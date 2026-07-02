@@ -217,8 +217,37 @@ async fn sync_one_competition(
 mod tests {
     use super::*;
 
+    // Two helpers, two seams:
+    //   settled(json)       -> the settled 120-minute SCORE (ingestion seam:
+    //                          serde decode -> ApiScore::settled_score).
+    //   score_bet(json, ..) -> the POINTS a user receives (feeds the settled
+    //                          score into scoring::compute_points -- the
+    //                          user-facing seam).
+    //
+    // Each shootout payload therefore has two matching tests:
+    //   *_settles_* asserts the SCORE, pinning the decode seam on its own, so a
+    //              failure localises to decoding rather than scoring.
+    //   *_scores_*  asserts the POINTS, pinning the composed user-facing outcome.
+    //              These are the red-capable guard: a 0-0 bet must score 3 and a
+    //              3-0 bet must score 0, which invert if settled_score ever
+    //              regresses to returning fullTime.
+
     fn settled(score_json: &str) -> (Option<i32>, Option<i32>) {
         serde_json::from_str::<ApiScore>(score_json).unwrap().settled_score()
+    }
+
+    // Runs the real end-to-end chain a user's points flow through: serde decode
+    // into ApiScore, the private settled_score() reduction to the 120-minute
+    // score, then the public compute_points() with the user's bet. Nothing is
+    // stubbed.
+    fn score_bet(json: &str, bet_home: i32, bet_away: i32) -> i32 {
+        let (actual_home, actual_away) = settled(json);
+        crate::scoring::compute_points(
+            bet_home,
+            bet_away,
+            actual_home.unwrap(),
+            actual_away.unwrap(),
+        )
     }
 
     // Real football-data.org v4 payloads (Euro 2024, free tier). For a
@@ -238,6 +267,24 @@ mod tests {
         assert_eq!(settled(json), (Some(1), Some(1)));
     }
 
+    // End-to-end: the England 1-1 Switzerland shootout payload (settles 1-1)
+    // scored against a user's bet. A user betting the 120-minute draw is paid
+    // for the exact score, not left unpaid because fullTime folded in the 6-4
+    // penalty count.
+    #[test]
+    fn shootout_after_a_draw_scores_the_120_minute_draw() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 6, "away": 4 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 5, "away": 3 }
+        }"#;
+        assert_eq!(score_bet(json, 1, 1), 3);
+        assert_eq!(score_bet(json, 2, 2), 1);
+        assert_eq!(score_bet(json, 2, 1), 0);
+    }
+
     // Portugal 0-0 Slovenia a.e.t., won 3-0 on pens. fullTime reads 3-0, which
     // would wrongly grade a correct draw guess as a home win.
     #[test]
@@ -250,6 +297,53 @@ mod tests {
             "penalties": { "home": 3, "away": 0 }
         }"#;
         assert_eq!(settled(json), (Some(0), Some(0)));
+    }
+
+    // End-to-end: the Portugal 0-0 Slovenia goalless shootout payload (settles
+    // 0-0) scored against a user's bet. The 0-0-scores-3 and 3-0-scores-0 pair
+    // is the red-capable guard: if settled_score regressed to returning fullTime
+    // (3-0), those two assertions would invert (0-0 bet drops to 0, 3-0 bet
+    // jumps to 3) and the test would fail. The 1-0 bet proves the folded 3-0
+    // penalty count was not used as the score.
+    #[test]
+    fn goalless_shootout_scores_the_nil_nil_not_the_penalty_count() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "PENALTY_SHOOTOUT",
+            "fullTime": { "home": 3, "away": 0 },
+            "regularTime": { "home": 0, "away": 0 },
+            "extraTime": { "home": 0, "away": 0 },
+            "penalties": { "home": 3, "away": 0 }
+        }"#;
+        assert_eq!(score_bet(json, 0, 0), 3);
+        assert_eq!(score_bet(json, 1, 0), 0);
+        assert_eq!(score_bet(json, 3, 0), 0);
+    }
+
+    // End-to-end: an EXTRA_TIME match (no shootout) settles on fullTime 2-1, so
+    // a user betting the exact 2-1 is paid the full 3 points. Proves the
+    // shootout special-casing did not disturb the ordinary extra-time path.
+    #[test]
+    fn extra_time_winner_scores_the_full_time_score() {
+        let json = r#"{
+            "winner": "HOME_TEAM", "duration": "EXTRA_TIME",
+            "fullTime": { "home": 2, "away": 1 },
+            "regularTime": { "home": 1, "away": 1 },
+            "extraTime": { "home": 1, "away": 0 }
+        }"#;
+        assert_eq!(score_bet(json, 2, 1), 3);
+    }
+
+    // End-to-end: a REGULAR 90' match settles on fullTime 0-2. The exact 0-2 bet
+    // scores 3; an outcome-only bet (0-3, right away winner, wrong score) scores
+    // 1, proving the non-shootout path still routes through fullTime.
+    #[test]
+    fn regular_match_scores_the_full_time_score() {
+        let json = r#"{
+            "winner": "AWAY_TEAM", "duration": "REGULAR",
+            "fullTime": { "home": 0, "away": 2 }
+        }"#;
+        assert_eq!(score_bet(json, 0, 2), 3);
+        assert_eq!(score_bet(json, 0, 3), 1);
     }
 
     // A match decided in extra time (no shootout) already reports the 120'
